@@ -107,13 +107,69 @@ Then, in any repo:
 - `questions-per-layer=N` — by default it **scales with change size**
   (1 for a tiny PR up to 5 for a whole-repo audit).
 
-## How the grade works
+## The concept: Complexity − Grasp
 
-Each layer's comprehension gap is weighted by its **cascade cost multiplier**
-(L1≈1× → L4≈50×), normalized to a 0–1 index, with a floor so a severe
-high-layer gap can't be averaged away by clean code. Two indices are emitted:
-a **scope-relative** one (drives the grade, fair within a PR or repo) and an
-**absolute** one (fixed scale, for ranking across PRs/repos).
+Epistemic debt is what accumulates when a system's complexity outpaces the
+team's understanding of it, integrated over time:
+
+```
+Ed = ∫ (Cₛ − Gₑ) dt
+```
+
+- **`Cₛ` — System Complexity:** how intricate the system actually is.
+  *Observable* — scanned from the repo (LOC, fan-in/out, nesting depth,
+  integrations, breadth of a diff).
+- **`Gₑ` — Cognitive Grasp:** how well the team actually understands it.
+  *Recorded nowhere* — it can only be elicited by asking grounded questions,
+  never a self-rating (a self-rating measures confidence, not comprehension).
+
+When `Cₛ > Gₑ` the gap is **debt** — opacity that compounds silently until a
+production failure. When `Gₑ > Cₛ` the layer carries **epistemic credit** —
+surplus understanding that buffers future complexity. The integral matters
+because code written during low grasp becomes the foundation everything else
+is built on.
+
+### The scales
+
+**Per-layer scores — `Cₛ` and `Gₑ` are each rated 0–5:**
+
+| Score | Meaning |
+|:-----:|---------|
+| 0     | none / trivial |
+| 1–2   | low |
+| 3     | moderate |
+| 4–5   | high / severe |
+
+Each layer's **gap** = `Cₛ − Gₑ`, floored at 0 (a negative gap is *credit*, not
+negative debt).
+
+**Four abstraction layers, each with a cascade cost multiplier `cₖ`** — a gap
+higher up forces rework in every layer beneath it, so it weighs far more:
+
+| Layer | A gap here means the team… | `cₖ` |
+|-------|----------------------------|:----:|
+| **L4 Requirements**   | …doesn't grasp *what* the system must do | **50×** |
+| **L3 Architecture**   | …doesn't grasp *how the pieces fit*      | **10×** |
+| **L2 Design**         | …doesn't grasp *why components are shaped this way* | **4×** |
+| **L1 Implementation** | …doesn't grasp *what the code actually does* | **1×** |
+
+Weighted debt per layer = `gap × cₖ`. (The framework quotes *ranges* — L4
+30–70×, L2 3–6× — but `score.py` fixes these exact values so grades are
+reproducible.)
+
+### From scores to a grade
+
+The weighted gaps normalize to a **debt index (0–1)**, which maps to a letter
+grade: low → **A / B** (Healthy / Minor), mid → **C** (Moderate), high →
+**D / F** (Serious / Critical). A **floor** ensures one severe high-layer gap
+can't be averaged away by clean lower-layer code. Two indices are emitted: a
+**scope-relative** one (denominator = only the layers present) that drives the
+grade, and an **absolute** one (fixed 4-layer denominator) for ranking across
+PRs/repos.
+
+**The core thesis:** the danger isn't complex code — it's complex code *nobody
+can explain*. That's why `Cₛ` is scanned and `Gₑ` is tested, from two
+independent sources.
 
 ## Credit
 
