@@ -19,7 +19,7 @@ change introduces," not total repo debt.}
 
 | Layer | Complexity (Cₛ) | Grasp (Gₑ) | Gap | Cascade ×cₖ | Weighted |
 |-------|-----------------|------------|-----|-------------|----------|
-| L4 Requirements  | {0-5} | {0-5} | {gap} | 50 | {w} |
+| L4 Requirements  | {0-5} | {0-5} | {gap} | 30 | {w} |
 | L3 Architecture  | {0-5} | {0-5} | {gap} | 10 | {w} |
 | L2 Design        | {0-5} | {0-5} | {gap} | 4  | {w} |
 | L1 Implementation| {0-5} | {0-5} | {gap} | 1  | {w} |

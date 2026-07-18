@@ -148,7 +148,7 @@ higher up forces rework in every layer beneath it, so it weighs far more:
 
 | Layer | A gap here means the team… | `cₖ` |
 |-------|----------------------------|:----:|
-| **L4 Requirements**   | …doesn't grasp *what* the system must do | **50×** |
+| **L4 Requirements**   | …doesn't grasp *what* the system must do | **30×** |
 | **L3 Architecture**   | …doesn't grasp *how the pieces fit*      | **10×** |
 | **L2 Design**         | …doesn't grasp *why components are shaped this way* | **4×** |
 | **L1 Implementation** | …doesn't grasp *what the code actually does* | **1×** |

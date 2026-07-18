@@ -26,12 +26,25 @@ import json
 import sys
 
 # Cascade cost multipliers (rework triggered by a gap at this layer).
-# Midpoints of the framework's ranges: L2 3-6×, L4 30-70×.
+# Positioned within the framework's ranges (L2 3-6×, L4 30-70×). L4 sits at
+# the low end of its range (30, not the 50 midpoint) on purpose: 50 made L4
+# dominate `debt_index_absolute` — the cross-repo ranking magnitude — so
+# heavily that lower-layer signal was drowned out. 30 keeps the top jump
+# (L3→L4) at 3× rather than an outlier 5×. CALIBRATION KNOB.
+#
+# NB: CASCADE also feeds the *grade* — it normalizes the base debt_index
+# (weighted_possible below), not just debt_index_absolute. Lowering L4 is
+# mostly floor-bound (FLOOR_WEIGHT dominates when a high layer has a gap), so
+# the grade is unchanged for the vast majority of inputs. The exception is the
+# {L1, L2, L4}-present scope (PR mode with no L3 signal) with a small L4 gap
+# beside larger lower-layer gaps: there the base index is binding, and
+# shrinking L4's denominator weight nudges a handful of inputs from C to D.
+# That marginal shift is accepted; it is not a pure ranking-only dial.
 CASCADE = {
     "L1_implementation": 1,
     "L2_design": 4,
     "L3_architecture": 10,
-    "L4_requirements": 50,
+    "L4_requirements": 30,
 }
 
 SCALE_MAX = 5  # complexity and grasp are each rated 0-5
