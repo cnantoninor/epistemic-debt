@@ -124,7 +124,7 @@ gap.
 
 A gap at a higher layer forces rework in every layer beneath it, so gaps
 are **not** equal. Weight each layer's gap by its cascade multiplier
-(L1≈1×, L2≈4×, L3≈10×, L4≈50×) and map the total to a grade band.
+(L1≈1×, L2≈4×, L3≈10×, L4≈30×) and map the total to a grade band.
 
 Prefer the deterministic script for reproducibility. Invoke it by its
 absolute bundled path — never rely on the shell's working directory:
