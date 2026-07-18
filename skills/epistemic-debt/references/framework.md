@@ -59,8 +59,10 @@ This is why grading must weight higher-layer gaps far more heavily:
 
 **Canonical values used by this tool:** the ranges above are the source's
 spans; `scripts/score.py` is authoritative and uses fixed point values
-**L1=1, L2=4, L3=10, L4=50**. If you ever grade without the script, use
-those exact numbers so results stay reproducible.
+**L1=1, L2=4, L3=10, L4=30**. L4 is pinned to the low end of its 30–70×
+range (not the 50 midpoint) so it doesn't dominate the cross-repo ranking
+magnitude; see the `CASCADE` comment in `score.py`. If you ever grade
+without the script, use those exact numbers so results stay reproducible.
 
 ## Measuring the two halves
 

@@ -61,7 +61,7 @@ change *introduces*); otherwise whole-repo. PR mode weights and phrases everythi
 as marginal debt, not total.
 
 **`score.py` is the single source of truth for grading.** It holds the canonical
-cascade multipliers **L1=1, L2=4, L3=10, L4=50**. `framework.md` documents the
+cascade multipliers **L1=1, L2=4, L3=10, L4=30**. `framework.md` documents the
 source's *ranges* (e.g. L4 30–70×) but explicitly defers to the script's fixed
 values so results are reproducible. If you change a multiplier, change it in
 `score.py` and reconcile the note in `framework.md` — never let them diverge.
