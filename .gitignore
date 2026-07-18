@@ -1,4 +1,5 @@
 epistemic-debt-publish-guide.md
+/epistemic-debt/
 __pycache__/
 *.pyc
 *:Zone.Identifier

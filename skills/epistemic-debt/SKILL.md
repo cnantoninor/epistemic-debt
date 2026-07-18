@@ -53,8 +53,17 @@ Decide *what* is being measured before anything else.
      ```bash
      branch=$(git rev-parse --abbrev-ref HEAD)
      base=$(git rev-parse --verify --quiet origin/main >/dev/null && echo origin/main || git symbolic-ref --quiet refs/remotes/origin/HEAD | sed 's@^refs/remotes/@@')
-     git diff --stat "$base"...HEAD
+     if [ -z "$base" ]; then
+       echo "No origin/main or origin/HEAD to diff against — falling back to whole-repo mode."
+     else
+       git diff --stat "$base"...HEAD
+     fi
      ```
+     Guard the empty `base`: with **no** `origin/main` **and no**
+     `origin/HEAD` (e.g. no remote), `git diff "$base"...HEAD` would
+     silently diff `HEAD...HEAD` (empty) and mislabel the run — so treat an
+     unresolved base as **whole-repo mode** and say so, rather than
+     reporting a spurious empty PR diff.
    - On `main` (or no diff) → whole-repo mode.
 
 State the resolved scope to the user before proceeding. **PR mode

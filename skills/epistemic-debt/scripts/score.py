@@ -92,9 +92,10 @@ def compute_grade(layers: dict[str, dict[str, int]]) -> dict[str, object]:
     2. Base index = Σ weighted / Σ (cascade * SCALE_MAX) over the layers
        actually present, giving a 0-1 score comparable across whole-repo
        and PR scopes (which score different layer sets).
-    3. Floor: each non-local layer can raise the index to at least
-       FLOOR_WEIGHT[layer] * (gap / SCALE_MAX), so a severe high-layer
-       gap can't be diluted to a good grade by clean lower layers.
+    3. Floor: each layer with a floor weight (all four — including L1, at
+       the deliberate 0.3 documented on FLOOR_WEIGHT) can raise the index to
+       at least FLOOR_WEIGHT[layer] * (gap / SCALE_MAX), so a severe
+       high-layer gap can't be diluted to a good grade by clean lower layers.
 
     Also emits `debt_index_absolute` — the same numerator over the fixed
     four-layer maximum (un-floored) — for cross-scope / cross-repo
