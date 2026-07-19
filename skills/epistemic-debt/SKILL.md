@@ -29,8 +29,7 @@ Parse these from the invocation (all optional):
 
 - **scope** — a repo path or a PR/branch ref. If absent, auto-detect (Phase 0).
 - **format** — `free-text` or `multiple-choice` for the Phase 2 probe. If
-  absent, **default to `free-text`** (the deeper, un-guessable signal) and
-  proceed — don't stall the run to ask.
+  absent, ask the respondent, explaining the tradeoff.
 - **questions-per-layer** — integer. Default is **adaptive to change size**
   (see the depth table in `references/comprehension-probes.md`): more
   questions for larger changes, up to the **maximum for a whole-repo**
@@ -100,9 +99,9 @@ the answers. Full protocol in `references/comprehension-probes.md`; the
 essentials:
 
 - Pick the format from the `format` arg (`free-text` or `multiple-choice`).
-  If unset, **default to `free-text`** — the deeper, un-guessable signal —
-  and say so, noting they can switch to `multiple-choice` (fast but
-  guessable, so it over-states grasp). Don't block the run on this choice.
+  If unset, ask the respondent, explaining the tradeoff: free-text is the
+  deeper, un-guessable signal but slower; multiple-choice is fast and
+  structured but guessable (recognition ≠ recall, so it over-states grasp).
 - For each layer present, ask `questions-per-layer` questions. If not set
   explicitly, derive the count from the change-size depth table in
   `references/comprehension-probes.md` (whole-repo = max). Sample parts
