@@ -49,11 +49,15 @@ UNDERCONFIDENT_THRESHOLD = -0.3
 
 
 def _confidence_value(confidence: float | str) -> float:
-    """Resolve a confidence input to a 0-1 float, accepting labels."""
+    """Resolve a confidence input to a 0-1 float, accepting labels or a
+    numeric string (JSON authored by hand or by an LLM may quote either)."""
     if isinstance(confidence, str):
+        label = confidence.strip().lower()
+        if label in CONFIDENCE_LABELS:
+            return CONFIDENCE_LABELS[label]
         try:
-            return CONFIDENCE_LABELS[confidence.strip().lower()]
-        except KeyError:
+            return float(label)
+        except ValueError:
             raise ValueError(
                 f"Unknown confidence label {confidence!r}; "
                 f"expected one of {sorted(CONFIDENCE_LABELS)} or a 0-1 number."

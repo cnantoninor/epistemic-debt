@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""Unit tests for grasp.py — run with:
+    python3 skills/epistemic-debt/scripts/test_grasp.py
+or:
+    python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"
+"""
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from grasp import (  # noqa: E402
+    _calibration_flag,
+    _confidence_value,
+    score_answer,
+    score_layer,
+)
+
+SCRIPT = Path(__file__).resolve().parent / "grasp.py"
+
+
+class ConfidenceValueTests(unittest.TestCase):
+    def test_accepts_raw_number(self):
+        self.assertEqual(_confidence_value(0.7), 0.7)
+
+    def test_accepts_label_case_and_whitespace_insensitive(self):
+        self.assertEqual(_confidence_value(" Certain "), 0.95)
+        self.assertEqual(_confidence_value("guessing"), 0.1)
+        self.assertEqual(_confidence_value("SOMEWHAT"), 0.4)
+        self.assertEqual(_confidence_value("Confident"), 0.7)
+
+    def test_accepts_numeric_string(self):
+        # JSON authored by hand (or by an LLM) may quote a number; the error
+        # message promises "a 0-1 number" is acceptable as a string, so this
+        # must not raise.
+        self.assertEqual(_confidence_value("0.7"), 0.7)
+
+    def test_rejects_unknown_label(self):
+        with self.assertRaises(ValueError):
+            _confidence_value("pretty sure")
+
+
+class CalibrationFlagTests(unittest.TestCase):
+    # Hand-checked against the ±0.3 thresholds in comprehension-probes.md.
+    def test_overconfident_at_and_above_threshold(self):
+        self.assertEqual(_calibration_flag(0.3), "overconfident")
+        self.assertEqual(_calibration_flag(0.9), "overconfident")
+
+    def test_underconfident_at_and_below_threshold(self):
+        self.assertEqual(_calibration_flag(-0.3), "underconfident")
+        self.assertEqual(_calibration_flag(-0.9), "underconfident")
+
+    def test_calibrated_strictly_between(self):
+        self.assertEqual(_calibration_flag(0.0), "calibrated")
+        self.assertEqual(_calibration_flag(0.29), "calibrated")
+        self.assertEqual(_calibration_flag(-0.29), "calibrated")
+
+
+class ScoreAnswerTests(unittest.TestCase):
+    def test_single_claim(self):
+        result = score_answer({"confidence": 0.6, "claims": [1.0]})
+        self.assertEqual(result["correctness"], 1.0)
+        self.assertEqual(result["confidence"], 0.6)
+
+    def test_correctness_is_mean_of_claims(self):
+        result = score_answer({"confidence": 0.5, "claims": [1.0, 0.5, 0.0]})
+        self.assertAlmostEqual(result["correctness"], 0.5)
+
+    def test_empty_claims_rejected(self):
+        with self.assertRaises(ValueError):
+            score_answer({"confidence": 0.5, "claims": []})
+
+
+class ScoreLayerTests(unittest.TestCase):
+    def test_aggregation_is_mean_of_per_answer_means_not_flat_claim_mean(self):
+        # Hand-checked: this is the case that would previously have been
+        # described as "equivalently, the mean over every claim" — which is
+        # only true when every answer has the same claim count. Here answer A
+        # has 2 claims (mean 0.75) and answer B has 4 claims (mean 0.0):
+        #   mean-of-answer-means = mean(0.75, 0.0) = 0.375  <- what this
+        #     function must return (answers, not claims, are the unit).
+        #   flat mean over all 6 claims = (1+0.5+0+0+0+0)/6 = 0.25 <- the
+        #     wrong number the old prose equivalence claim would give.
+        answers = [
+            {"confidence": 0.7, "claims": [1.0, 0.5]},
+            {"confidence": 0.4, "claims": [0.0, 0.0, 0.0, 0.0]},
+        ]
+        result = score_layer(answers)
+        self.assertAlmostEqual(result["correctness"], 0.375)
+        self.assertNotAlmostEqual(result["correctness"], 0.25)
+        # g = round(correctness * 5) = round(1.875) = 2
+        self.assertEqual(result["g"], 2)
+
+    def test_confidence_is_mean_of_answer_confidences(self):
+        answers = [
+            {"confidence": 0.8, "claims": [1.0]},
+            {"confidence": 0.2, "claims": [1.0]},
+        ]
+        result = score_layer(answers)
+        self.assertAlmostEqual(result["confidence"], 0.5)
+        self.assertAlmostEqual(result["correctness"], 1.0)
+        self.assertAlmostEqual(result["gap"], -0.5)
+        self.assertEqual(result["flag"], "underconfident")
+
+    def test_g_rounding_is_bankers_rounding_at_the_half(self):
+        # correctness = 0.5 -> 0.5*5 = 2.5 -> Python's round() is
+        # round-half-to-even, so this rounds DOWN to 2, not up to 3.
+        answers = [{"confidence": 0.5, "claims": [0.5]}]
+        result = score_layer(answers)
+        self.assertEqual(result["correctness"], 0.5)
+        self.assertEqual(result["g"], 2)
+
+    def test_overconfident_flag_end_to_end(self):
+        answers = [{"confidence": 0.9, "claims": [0.6]}]
+        result = score_layer(answers)
+        # gap = 0.9 - 0.6 = 0.3 (exactly at the overconfident threshold)
+        self.assertAlmostEqual(result["gap"], 0.3)
+        self.assertEqual(result["flag"], "overconfident")
+
+    def test_empty_answers_rejected(self):
+        with self.assertRaises(ValueError):
+            score_layer([])
+
+
+class CliTests(unittest.TestCase):
+    def _run(self, stdin_text: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(SCRIPT)],
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_cli_multi_layer(self):
+        proc = self._run(json.dumps({
+            "L1_implementation": [{"confidence": 0.7, "claims": [1.0, 0.5]}],
+            "L2_design": [{"confidence": 0.4, "claims": [1.0]}],
+        }))
+        self.assertEqual(proc.returncode, 0)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["L1_implementation"]["g"], 4)
+        self.assertEqual(payload["L2_design"]["g"], 5)
+
+    def test_cli_rejects_empty_input(self):
+        proc = self._run("{}")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("No layers", proc.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

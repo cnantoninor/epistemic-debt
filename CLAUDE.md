@@ -29,6 +29,9 @@ skills/epistemic-debt/
   scripts/score.py                  # Phase 3: cascade-weighted grade from per-layer (Cₛ, Gₑ)
   scripts/grasp.py                  # Phase 2: Gₑ + calibration gap from per-claim probe scores
   scripts/recovery.py               # Phase 4/5: recovery time (τₖ) + AI break-even from gaps
+  scripts/test_score.py             # Unit + CLI tests for score.py
+  scripts/test_grasp.py             # Unit + CLI tests for grasp.py
+  scripts/test_recovery.py          # Unit + CLI tests for recovery.py
 ```
 
 ## The commands that matter
@@ -54,8 +57,20 @@ echo '{"gaps":{"L4_requirements":2,"L1_implementation":3}}' \
 ```
 
 Any layer may be omitted (PR mode often has no L4 signal); omitted layers are
-excluded from the weighting. There is no test suite, linter, or CI configured —
-validate changes to any script by running representative inputs through it.
+excluded from the weighting.
+
+**Test suite.** Each script has a stdlib-only `unittest` companion
+(`test_<name>.py`, co-located) covering both its pure functions (with
+hand-computed expected values in comments — recompute by hand when you touch
+a formula, don't just accept whatever the code now returns) and its CLI
+stdin/stdout contract via `subprocess`. Run the whole suite:
+
+```bash
+python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"
+```
+
+There is still no linter or CI configured. Add tests alongside any change to
+a script's math; don't rely on ad-hoc manual runs to validate a formula.
 
 ## Architecture / big picture
 
