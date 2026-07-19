@@ -8,8 +8,10 @@ A **Claude Code plugin** (`epistemic-debt`) that grades a repository — or a si
 PR diff — for *epistemic debt*: the gap between system complexity (`Cₛ`, scanned
 from the repo) and team comprehension (`Gₑ`, tested directly, not self-rated). It
 implements Antonino Rau's [Epistemic Debt framework](https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost). This is **not** a Python
-package despite containing one script — there is no build system, no dependencies,
-and no packaging. The behavior is almost entirely prompt-driven markdown.
+package despite containing a few scripts — there is no build system, no
+dependencies, and no packaging. The behavior is almost entirely prompt-driven
+markdown; the scripts exist so every calculation the framework defines is
+computed once, deterministically, instead of re-derived in prose on each run.
 
 ## Repository map
 
@@ -24,23 +26,36 @@ skills/epistemic-debt/
   references/framework.md          # Definitions, cascade math, break-even model (load on demand)
   references/comprehension-probes.md  # Phase 2 protocol: how to test grasp, depth table, scoring
   assets/report-template.md         # Output format for the written report
-  scripts/score.py                  # Deterministic cascade-weighted grader (the only code)
+  scripts/score.py                  # Phase 3: cascade-weighted grade from per-layer (Cₛ, Gₑ)
+  scripts/grasp.py                  # Phase 2: Gₑ + calibration gap from per-claim probe scores
+  scripts/recovery.py               # Phase 4/5: recovery time (τₖ) + AI break-even from gaps
 ```
 
-## The one command that matters
+## The commands that matter
 
-Everything else is markdown Claude reads at runtime. The scoring script is the
-only thing you can execute and test directly:
+Everything else is markdown Claude reads at runtime. The three scripts are the
+only things you can execute and test directly — all stdlib-only Python 3, no
+deps to install:
 
 ```bash
-# Smoke-test / run the grader (stdlib-only, Python 3; no deps to install):
+# score.py — cascade-weighted grade from per-layer complexity/grasp:
 echo '{"L4_requirements":{"c":4,"g":2},"L3_architecture":{"c":3,"g":3},"L2_design":{"c":2,"g":3},"L1_implementation":{"c":4,"g":4}}' \
   | python3 skills/epistemic-debt/scripts/score.py
+
+# grasp.py — Gₑ + calibration gap from per-claim probe answers:
+echo '{"L1_implementation":[{"confidence":0.7,"claims":[1.0,0.5]}]}' \
+  | python3 skills/epistemic-debt/scripts/grasp.py
+
+# recovery.py — recovery time + break-even from per-layer gaps (imports
+# CASCADE from score.py — Python puts a script's own directory on sys.path,
+# so this resolves regardless of invocation cwd, same as the other two):
+echo '{"gaps":{"L4_requirements":2,"L1_implementation":3}}' \
+  | python3 skills/epistemic-debt/scripts/recovery.py
 ```
 
 Any layer may be omitted (PR mode often has no L4 signal); omitted layers are
 excluded from the weighting. There is no test suite, linter, or CI configured —
-validate changes to `score.py` by running representative inputs through it.
+validate changes to any script by running representative inputs through it.
 
 ## Architecture / big picture
 
@@ -50,21 +65,35 @@ self-rating (a self-rating measures confidence, not comprehension). This split i
 the core thesis; preserve it in any edit to `SKILL.md` or the probes reference.
 
 **Runtime flow.** `/epistemic-debt` (or a natural-language ask) → the skill runs
-Phase 0 resolve scope → Phase 1 scan complexity → Phase 2 test grasp → Phase 3
-grade via `score.py` → Phase 4 write report + explain → Phase 5 optional
-quantitative escalation. `SKILL.md` is the authoritative description of this flow;
-the two `references/` files are loaded on demand for depth.
+Phase 0 resolve scope → Phase 1 scan complexity → Phase 2 test grasp via
+`grasp.py` → Phase 3 grade via `score.py` → Phase 4 write report + explain
+(always runs, includes a default-rate recovery estimate via `recovery.py`) →
+Phase 5 optional deepening (`recovery.py` again, with the team's real rates).
+`SKILL.md` is the authoritative description of this flow; the two
+`references/` files are loaded on demand for depth.
 
 **Scope auto-detection.** No arg → inspect cwd: non-`main` branch with a non-empty
 diff vs `origin/main` (fallback `origin/HEAD`) = **PR mode** (measures debt the
 change *introduces*); otherwise whole-repo. PR mode weights and phrases everything
 as marginal debt, not total.
 
-**`score.py` is the single source of truth for grading.** It holds the canonical
-cascade multipliers **L1=1, L2=4, L3=10, L4=30**. `framework.md` documents the
-source's *ranges* (e.g. L4 30–70×) but explicitly defers to the script's fixed
-values so results are reproducible. If you change a multiplier, change it in
-`score.py` and reconcile the note in `framework.md` — never let them diverge.
+**Each script is the single source of truth for its slice of the math** —
+this is why the calculations live in code, not prose: two runs of the same
+inputs must yield the same numbers.
+- `score.py` holds the canonical cascade multipliers **L1=1, L2=4, L3=10,
+  L4=30**. `framework.md` documents the source's *ranges* (e.g. L4 30–70×)
+  but explicitly defers to the script's fixed values.
+- `grasp.py` holds the claim/answer aggregation (`answer correctness =
+  mean(claim correctness)`, `Gₑ = round(correctness × 5)`) and the
+  calibration gap/flag thresholds. `comprehension-probes.md` documents the
+  protocol for *generating* the inputs; the script owns aggregating them.
+- `recovery.py` holds `DEFAULT_RATES`, `τₖ`, `T_recovery`, `Cₖ`, and the
+  break-even check, importing `CASCADE` from `score.py` rather than
+  duplicating it. `framework.md` documents the model; the script computes it.
+
+If you change a multiplier, rate, or threshold, change it in the owning
+script and reconcile the corresponding note in its `references/` doc — never
+let a script and its doc diverge.
 
 **Two indices, one grade.** `debt_index` is scope-relative (denominator = only the
 layers present) and **drives the grade**; `debt_index_absolute` uses the fixed
@@ -84,16 +113,20 @@ collapse this to "zero debt."
 ## Conventions specific to this repo
 
 - **Version bumps** must be applied in **both** `.claude-plugin/plugin.json` and
-  `.claude-plugin/marketplace.json` (they currently mirror each other at `1.0.0`).
+  `.claude-plugin/marketplace.json` (they currently mirror each other).
 - **Attribution is required.** Every run shows the credit notice for Antonino Rau
   before Phase 0, and the report template ends with the credit footer. Preserve the
   Substack links (`plugin.json` homepage, README, SKILL.md credit block, template
   footer) when editing.
-- **Invoke `score.py` by absolute path** from the skill —
-  `"${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"` — never rely on
-  the shell's working directory (the skill runs against arbitrary target repos).
+- **Invoke every script by absolute path** from the skill —
+  `"${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/{score,grasp,recovery}.py"`
+  — never rely on the shell's working directory (the skill runs against
+  arbitrary target repos).
 - Reports are written by the *target* repo's run to
   `epistemic-debt/YYYY-MM-DD-{repo|pr-<ref>}.md`; that output dir is not part of
   this plugin's own tree.
-- `score.py` targets Python 3, stdlib only, `from __future__ import annotations`.
-  Keep it dependency-free — it must run anywhere a target repo lives.
+- All three scripts target Python 3, stdlib only, `from __future__ import
+  annotations`. Keep them dependency-free — they must run anywhere a target
+  repo lives. `recovery.py` imports `CASCADE` from `score.py` (co-located, no
+  package/install needed); don't introduce any other cross-script or
+  third-party dependency.

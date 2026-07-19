@@ -83,8 +83,9 @@ naturally decomposed.
 4. **Decompose the answer into its distinct claims** (the checkable
    assertions it makes) and grade each **correctness 0–1** against the
    reference (partial credit). Show the reference + citation.
-5. The answer's correctness is the mean across its claims:
-   `answer correctness = mean(claim correctness)`.
+5. Record the answer as `{confidence, claims: [...]}` — the aggregation
+   into an answer/layer correctness happens in `scripts/grasp.py` (see
+   Scoring → Gₑ below), not by hand.
 6. The respondent may contest. A correct rebuttal **raises** the affected
    claim's correctness and is logged as strong grasp — defending an answer
    is comprehension.
@@ -95,14 +96,18 @@ question as free-text.
 
 ## Scoring → Gₑ
 
-Per layer: `correctness = mean(answer correctness across questions)`
-(equivalently, the mean over every claim in the layer);
-`Gₑ = round(correctness × 5)`. Feed Gₑ into `scripts/score.py` exactly as
-before — the engine is unchanged.
+Feed every layer's answers to `scripts/grasp.py` (invoked the same way
+Phase 3 invokes `score.py` — see `SKILL.md`); it computes
+`answer correctness = mean(claim correctness)`,
+`correctness = mean(answer correctness across questions)`, and
+`Gₑ = round(correctness × 5)`, so the aggregation is reproducible. Feed
+the resulting Gₑ into `scripts/score.py` exactly as before — that engine
+is unchanged.
 
 ## Calibration (diagnostic only — never changes the grade)
 
-Per layer: `confidence = mean(answer confidence)`; `gap = confidence − correctness`.
+`scripts/grasp.py` also returns, per layer: `confidence = mean(answer
+confidence)`, `gap = confidence − correctness`, and a flag:
 
 - `gap ≳ +0.3` → **overconfident** (the confident-and-wrong danger zone).
 - `gap ≈ 0` → well-calibrated.

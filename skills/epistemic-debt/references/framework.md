@@ -114,6 +114,7 @@ used. Phase 5 replaces them with the team's measured rates.
 **Total recovery:** `T_recovery = Σₖ τₖ`
 
 **Effective (cascade-inclusive) cost at layer k:** `Cₖ = Σⱼ₌₁ᵏ τⱼ`
+(cumulative through layer k, in L1→L4 order).
 
 **AI break-even** — AI-assisted development is net-negative when the
 cascade-weighted recovery cost exceeds the time AI saved:
@@ -122,6 +123,13 @@ cascade-weighted recovery cost exceeds the time AI saved:
 Net Benefit = δ − Σₖ cₖ · τₖ         (δ = dev time saved by AI generation)
 AI is a net loss when:  Σₖ cₖ · τₖ > δ
 ```
+
+**Canonical computation:** `scripts/recovery.py` is authoritative for all
+of the above — given per-layer gaps (from `score.py`), it applies
+`DEFAULT_RATES` (or supplied real rates), and returns `τₖ`, `T_recovery`,
+`Cₖ`, and the break-even verdict once `δ` is supplied. Phases 4 and 5 both
+call it; see `SKILL.md`. If you ever compute without the script, use these
+exact definitions so results stay reproducible.
 
 ## Remediation — shifting t₀ leftward
 

@@ -113,16 +113,22 @@ essentials:
   so grading is auditable. Grade **correctness per claim, confidence per
   answer**: an articulated answer mixes parts of differing certainty, so
   decompose it into its distinct claims and score each 0.0–1.0; capture one
-  overall confidence for the whole answer, as before. The answer's
-  correctness is the mean across its claims, and a correct rebuttal raises
-  the affected claim.
-- Per layer: `Gₑ = round(mean correctness × 5)`. Skip layers with no
-  observable complexity rather than testing hollow ground.
+  overall confidence for the whole answer, as before. A correct rebuttal
+  raises the affected claim.
+- Skip layers with no observable complexity rather than testing hollow
+  ground. Feed every layer's answers (confidence + claims) to
+  `scripts/grasp.py`, the same way Phase 3 feeds `score.py` — it returns
+  `Gₑ`, correctness, confidence, and the calibration gap/flag, so the
+  aggregation is reproducible rather than re-derived by hand:
+
+```bash
+echo '{"L1_implementation": [{"confidence": 0.7, "claims": [1.0, 0.5]}, ...], ...}' \
+    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/grasp.py"
+```
 
 This is a work assessment, not an exam — don't police code access; instead
 ask *why / what-if / trace / what-would-you-change* questions a glance
-can't answer. Track confidence vs correctness for the Phase 4 calibration
-gap.
+can't answer.
 
 ## Phase 3 — Grade with cascade discounting
 
@@ -164,19 +170,29 @@ fitness functions for L3, contract/integration tests for L2, human
 review gates that break AI "circular confirmation." See the remediation
 section of `references/framework.md`.
 
-**Include a lightweight recovery estimate by default.** Using the default
-learning rates in `references/framework.md`, compute `τₖ = gap / rₖ` per
-layer, the total `T_recovery = Σ τₖ`, and note the AI break-even condition
-`Σ cₖ·τₖ > δ`. Fill the report's recovery-estimate section with it. Label
-it plainly as an **ESTIMATE from default rates** and print the rates used,
-so the user gets numbers without asking and without them being mistaken for
-the team's calibrated figures.
+**Include a lightweight recovery estimate by default.** Feed the per-layer
+gaps from Phase 3 to `scripts/recovery.py` — it applies the default
+learning rates from `references/framework.md` and returns `τₖ` per layer,
+`T_recovery = Σ τₖ`, and the cascade-weighted cost `Σ cₖ·τₖ` for the AI
+break-even condition:
+
+```bash
+echo '{"gaps": {"L4_requirements": G, ...}}' \
+    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/recovery.py"
+```
+
+Fill the report's recovery-estimate section with the result. The script's
+`estimate` field is `true` whenever any layer used a default rate — label
+that output plainly as an **ESTIMATE from default rates** and print the
+rates used, so the user gets numbers without asking and without them being
+mistaken for the team's calibrated figures.
 
 ## Phase 5 — Quantitative deepening with real rates (optional, non-blocking)
 
 The report already carries a default-rate estimate (Phase 4), so this never
-blocks the useful output. Offer — but don't wait on — a re-run with the
-team's **own** learning rates `rₖ` and the AI-time-saved `δ`, using
-`references/framework.md`, for a calibrated `τₖ`/`T_recovery` and a real
-break-even verdict `Σ cₖ·τₖ > δ`. Only compute it once the user supplies
-those inputs; until then the delivered report stands on its own.
+blocks the useful output. Offer — but don't wait on — a re-run passing the
+team's **own** learning rates and the AI-time-saved `δ` to the same
+`scripts/recovery.py` call (via its `rates` and `delta` input fields) for a
+calibrated `τₖ`/`T_recovery` and a real break-even verdict. Only compute it
+once the user supplies those inputs; until then the delivered report
+stands on its own.
