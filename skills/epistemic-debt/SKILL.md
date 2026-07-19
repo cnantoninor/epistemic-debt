@@ -29,7 +29,8 @@ Parse these from the invocation (all optional):
 
 - **scope** — a repo path or a PR/branch ref. If absent, auto-detect (Phase 0).
 - **format** — `free-text` or `multiple-choice` for the Phase 2 probe. If
-  absent, ask the respondent, explaining the tradeoff.
+  absent, **default to `free-text`** (the deeper, un-guessable signal) and
+  proceed — don't stall the run to ask.
 - **questions-per-layer** — integer. Default is **adaptive to change size**
   (see the depth table in `references/comprehension-probes.md`): more
   questions for larger changes, up to the **maximum for a whole-repo**
@@ -99,9 +100,9 @@ the answers. Full protocol in `references/comprehension-probes.md`; the
 essentials:
 
 - Pick the format from the `format` arg (`free-text` or `multiple-choice`).
-  If unset, ask the respondent, explaining the tradeoff: free-text is the
-  deeper, un-guessable signal but slower; multiple-choice is fast and
-  structured but guessable (recognition ≠ recall, so it over-states grasp).
+  If unset, **default to `free-text`** — the deeper, un-guessable signal —
+  and say so, noting they can switch to `multiple-choice` (fast but
+  guessable, so it over-states grasp). Don't block the run on this choice.
 - For each layer present, ask `questions-per-layer` questions. If not set
   explicitly, derive the count from the change-size depth table in
   `references/comprehension-probes.md` (whole-repo = max). Sample parts
@@ -110,8 +111,12 @@ essentials:
   so the probe tests reasoning over concrete code, not recall of where it
   lives.
 - Generate each question with a code-derived reference answer + `file:line`
-  so grading is auditable. Capture **confidence** before grading, then
-  score the answer 0.0–1.0 (partial credit; a correct rebuttal raises it).
+  so grading is auditable. Grade **per claim, not per answer**: an
+  articulated answer mixes parts of differing certainty, so decompose it
+  into its distinct claims and score correctness 0.0–1.0 **and** confidence
+  for each (a single confidence rarely fits a multi-part answer); the
+  answer's scores are the means across its claims, and a correct rebuttal
+  raises the affected claim.
 - Per layer: `Gₑ = round(mean correctness × 5)`. Skip layers with no
   observable complexity rather than testing hollow ground.
 
@@ -143,7 +148,11 @@ Also record `debt_index_absolute` (magnitude on a fixed four-layer scale)
 so grades can be ranked across PRs and repos; the grade itself uses the
 scope-relative index.
 
-## Phase 4 — Report and remediate
+## Phase 4 — Report and remediate (always runs)
+
+**This phase always runs to completion.** The written report and next
+actions are the point of the exercise — produce them automatically in every
+run, never gate them behind a follow-up prompt or an optional next phase.
 
 Write the assessment using `assets/report-template.md` to
 `epistemic-debt/YYYY-MM-DD-{repo|pr-<ref>}.md` in the target repo (create
@@ -156,9 +165,19 @@ fitness functions for L3, contract/integration tests for L2, human
 review gates that break AI "circular confirmation." See the remediation
 section of `references/framework.md`.
 
-## Phase 5 — Quantitative escalation (optional)
+**Include a lightweight recovery estimate by default.** Using the default
+learning rates in `references/framework.md`, compute `τₖ = gap / rₖ` per
+layer, the total `T_recovery = Σ τₖ`, and note the AI break-even condition
+`Σ cₖ·τₖ > δ`. Fill the report's recovery-estimate section with it. Label
+it plainly as an **ESTIMATE from default rates** and print the rates used,
+so the user gets numbers without asking and without them being mistaken for
+the team's calibrated figures.
 
-Only if the user wants numbers: using `references/framework.md`, estimate
-recovery time `τₖ = gap / rₖ` per layer (ask for learning rates), total
-recovery, and the AI break-even condition `Σ cₖ·τₖ > δ`. This is the
-transition from the qualitative grade to the full integral model.
+## Phase 5 — Quantitative deepening with real rates (optional, non-blocking)
+
+The report already carries a default-rate estimate (Phase 4), so this never
+blocks the useful output. Offer — but don't wait on — a re-run with the
+team's **own** learning rates `rₖ` and the AI-time-saved `δ`, using
+`references/framework.md`, for a calibrated `τₖ`/`T_recovery` and a real
+break-even verdict `Σ cₖ·τₖ > δ`. Only compute it once the user supplies
+those inputs; until then the delivered report stands on its own.

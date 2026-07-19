@@ -4,8 +4,9 @@ Source: Antonino Rau, "Epistemic Debt: The Math, The Cost"
 <https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost>
 
 Load this file when you need the exact definitions, the cost math, or the
-remediation mechanisms. The SKILL runs qualitatively by default; the
-quantitative section here is the optional escalation.
+remediation mechanisms. The SKILL's grade is qualitative; the quantitative
+section here powers both the report's always-on default-rate recovery
+estimate and the optional deep re-run with the team's own rates.
 
 ## Core idea
 
@@ -77,9 +78,11 @@ without the script, use those exact numbers so results stay reproducible.
 calls it "undocumented." It can only be elicited by asking the team.
 This is why the SKILL uses questions for grasp and scanning for complexity.
 
-## Quantitative escalation (optional)
+## Quantitative escalation
 
-Only compute this when the user asks for numbers or a break-even.
+The report always carries a **default-rate estimate** (Phase 4); a full
+computation with the team's **own** measured rates is the optional
+deepening (Phase 5).
 
 **Recovery time per layer** — time to close the gap once you decide to:
 
@@ -90,6 +93,23 @@ Only compute this when the user asks for numbers or a break-even.
 - `t₀` — the moment the team recognises and starts closing the gap.
   Earlier `t₀` = narrower gap = cheaper recovery.
 - `rₖ` — learning rate at layer k (empirical; ask the team).
+
+**Default learning rates (for the always-on estimate).** Real `rₖ` are
+empirical and team-specific, but the report includes a recovery estimate so
+it never depends on a follow-up. Use these defaults unless the user supplies
+their own — rates in **gap-points closed per engineer-week**; higher layers
+learn slower because they need alignment, not just reading:
+
+| Layer | Default `rₖ` (pts/eng-week) | Rationale |
+|-------|-----------------------------|-----------|
+| L1 Implementation | 2.0  | Read the code, run it |
+| L2 Design         | 1.0  | Internalise why components are shaped so |
+| L3 Architecture   | 0.5  | Build the system model, trace flows |
+| L4 Requirements   | 0.33 | Needs stakeholder alignment, not just study |
+
+So `τₖ = gapₖ / rₖ` yields engineer-weeks. These are **policy defaults** —
+always label output computed from them as an ESTIMATE and print the rates
+used. Phase 5 replaces them with the team's measured rates.
 
 **Total recovery:** `T_recovery = Σₖ τₖ`
 
