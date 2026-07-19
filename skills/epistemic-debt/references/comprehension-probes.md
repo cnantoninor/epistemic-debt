@@ -68,32 +68,30 @@ many non-redundant questions (e.g. L4 in a tiny PR). An explicit
 
 The probes on the higher layers demand *articulated* answers — trace this,
 explain why, predict that — and an articulated answer mixes parts of
-differing certainty. Forcing a single confidence (and a single correctness)
-onto the whole answer is exactly what makes it hard to score fairly, so
-grade **per claim** instead.
+differing certainty. Forcing a single **correctness** onto the whole answer
+is exactly what makes it hard to score fairly, so grade correctness **per
+claim** instead; confidence stays a single per-answer judgment, as it's the
+respondent's overall stated certainty going in, not something that is
+naturally decomposed.
 
 1. Generate the question **and** a reference answer with a `file:line`
    citation, so grading is auditable and not done from memory.
 2. Pose the question — for L1, paste the relevant code snippet(s) inline.
-3. The respondent answers in their own words. **Don't ask for one
-   confidence for the whole answer** — invite them to flag certainty *per
-   part* ("sure on the routing, guessing on the failure mode").
+3. Capture **confidence** *before* revealing anything, for the whole
+   answer:
+   Guessing / Somewhat / Confident / Certain → 0.1 / 0.4 / 0.7 / 0.95.
 4. **Decompose the answer into its distinct claims** (the checkable
-   assertions it makes) and record two numbers for each claim:
-   - **confidence 0–1** — the respondent's stated certainty for that part,
-     defaulting from their hedging language when unstated:
-     Guessing / Somewhat / Confident / Certain → 0.1 / 0.4 / 0.7 / 0.95.
-   - **correctness 0–1** — graded against the reference (partial credit).
-5. The answer's two scores are the means across its claims:
-   `answer correctness = mean(claim correctness)`,
-   `answer confidence  = mean(claim confidence)`.
-   Show the reference + citation.
+   assertions it makes) and grade each **correctness 0–1** against the
+   reference (partial credit). Show the reference + citation.
+5. The answer's correctness is the mean across its claims:
+   `answer correctness = mean(claim correctness)`.
 6. The respondent may contest. A correct rebuttal **raises** the affected
    claim's correctness and is logged as strong grasp — defending an answer
    is comprehension.
 
-**Multiple-choice** can't be decomposed this way: score it as a
-single-claim answer — one correctness (1/0) and one confidence per question.
+**Multiple-choice** can't be decomposed into claims: score it as a
+single-claim answer — one correctness (1/0), same single confidence per
+question as free-text.
 
 ## Scoring → Gₑ
 
@@ -104,8 +102,7 @@ before — the engine is unchanged.
 
 ## Calibration (diagnostic only — never changes the grade)
 
-Per layer: `confidence = mean(answer confidence)` (the mean over every
-claim); `gap = confidence − correctness`.
+Per layer: `confidence = mean(answer confidence)`; `gap = confidence − correctness`.
 
 - `gap ≳ +0.3` → **overconfident** (the confident-and-wrong danger zone).
 - `gap ≈ 0` → well-calibrated.
@@ -119,5 +116,5 @@ Record: format, questions-per-layer, conditions (work-realistic/open), who
 was tested, and that sampling was complexity-weighted. State the limits:
 measures the respondent(s) present — not "the team"; at 1 question/layer a
 single answer swings that layer's Gₑ; grading is LLM-judged and
-code-derived (fallible, but auditable via the cited references); confidence
-is self-reported, captured per claim rather than per answer.
+code-derived (fallible, but auditable via the cited references), done per
+claim for correctness; confidence is self-reported, one value per answer.

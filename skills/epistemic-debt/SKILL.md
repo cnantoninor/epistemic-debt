@@ -110,12 +110,12 @@ essentials:
   so the probe tests reasoning over concrete code, not recall of where it
   lives.
 - Generate each question with a code-derived reference answer + `file:line`
-  so grading is auditable. Grade **per claim, not per answer**: an
-  articulated answer mixes parts of differing certainty, so decompose it
-  into its distinct claims and score correctness 0.0–1.0 **and** confidence
-  for each (a single confidence rarely fits a multi-part answer); the
-  answer's scores are the means across its claims, and a correct rebuttal
-  raises the affected claim.
+  so grading is auditable. Grade **correctness per claim, confidence per
+  answer**: an articulated answer mixes parts of differing certainty, so
+  decompose it into its distinct claims and score each 0.0–1.0; capture one
+  overall confidence for the whole answer, as before. The answer's
+  correctness is the mean across its claims, and a correct rebuttal raises
+  the affected claim.
 - Per layer: `Gₑ = round(mean correctness × 5)`. Skip layers with no
   observable complexity rather than testing hollow ground.
 
