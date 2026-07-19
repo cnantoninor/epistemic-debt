@@ -1,19 +1,19 @@
 {
-  "name": "epistemic-tools",
+  "name": "antoninorau",
   "owner": {
     "name": "Antonino Rau",
     "url": "https://antoninorau.substack.com/"
   },
   "metadata": {
     "description": "Tools for measuring and managing epistemic debt, from the writing at antoninorau.substack.com.",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "plugins": [
     {
-      "name": "epistemic-debt",
+      "name": "epistemic",
       "source": "./",
       "description": "Measure epistemic debt on a repo or PR. Read the framework: https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost",
-      "version": "1.0.0"
+      "version": "2.0.0"
     }
   ]
 }

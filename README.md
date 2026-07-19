@@ -88,13 +88,13 @@ the same inputs always produce the same grade.
 
 ```
 /plugin marketplace add cnantoninor/epistemic-debt
-/plugin install epistemic-debt
+/plugin install epistemic
 ```
 
 Then, in any repo:
 
 ```
-/epistemic-debt
+/epistemic:debt
 ```
 
 …or just ask: *"measure epistemic debt on this repo."*

@@ -3,7 +3,7 @@ description: Measure epistemic debt on a repo or PR — scans complexity, tests 
 argument-hint: "[repo-path|PR-ref] [format=free-text|multiple-choice] [questions-per-layer=N]"
 ---
 
-Use the **epistemic-debt** skill to measure epistemic debt.
+Use the **debt** skill to measure epistemic debt.
 
 Arguments (all optional): $ARGUMENTS
 

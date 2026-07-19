@@ -1,5 +1,5 @@
 ---
-name: epistemic-debt
+name: debt
 description: This skill should be used when the user asks to "measure epistemic debt", "assess epistemic debt", "check our understanding gap", "how much epistemic debt", "grade this repo/PR for epistemic debt", or wants to evaluate how far system complexity has outpaced team comprehension. Works on a whole repository or on a single PR/branch diff against origin/main. Combines repo scanning (system complexity) with direct comprehension testing (cognitive grasp — the skill quizzes the respondent on real parts of the system rather than asking them to self-rate), then produces a cascade-weighted grade and remediation next actions using Rau's Epistemic Debt framework.
 ---
 
@@ -131,7 +131,7 @@ absolute bundled path — never rely on the shell's working directory:
 
 ```bash
 # Installed as a plugin:
-echo '{"L4_requirements":{"c":C,"g":G}, ...}' | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"
+echo '{"L4_requirements":{"c":C,"g":G}, ...}' | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/score.py"
 # Standalone skill: use the absolute path to this skill's own scripts/score.py.
 ```
 

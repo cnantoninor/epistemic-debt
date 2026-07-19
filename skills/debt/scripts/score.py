@@ -15,7 +15,7 @@ Usage (invoke by absolute path — see SKILL.md; do not rely on cwd):
            "L3_architecture":{"c":3,"g":3},
            "L2_design":{"c":2,"g":3},
            "L1_implementation":{"c":4,"g":4}}' \
-        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"
+        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/score.py"
 
 Any layer may be omitted (e.g. PR mode often has no L4 signal); omitted
 layers are simply excluded from the weighting.

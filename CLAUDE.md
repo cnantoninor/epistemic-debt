@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A **Claude Code plugin** (`epistemic-debt`) that grades a repository — or a single
+A **Claude Code plugin** (`epistemic`) that grades a repository — or a single
 PR diff — for *epistemic debt*: the gap between system complexity (`Cₛ`, scanned
 from the repo) and team comprehension (`Gₑ`, tested directly, not self-rated). It
 implements Antonino Rau's [Epistemic Debt framework](https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost). This is **not** a Python
@@ -18,8 +18,8 @@ and no packaging. The behavior is almost entirely prompt-driven markdown.
   plugin.json              # Plugin manifest (name, version, author) — bump version here
   marketplace.json         # Marketplace listing; version must match plugin.json
 commands/
-  epistemic-debt.md        # /epistemic-debt slash command → delegates to the skill
-skills/epistemic-debt/
+  debt.md                  # /epistemic:debt slash command → delegates to the skill
+skills/debt/
   SKILL.md                 # THE spec: the 6-phase (Phase 0–5) workflow Claude executes
   references/framework.md          # Definitions, cascade math, break-even model (load on demand)
   references/comprehension-probes.md  # Phase 2 protocol: how to test grasp, depth table, scoring
@@ -35,7 +35,7 @@ only thing you can execute and test directly:
 ```bash
 # Smoke-test / run the grader (stdlib-only, Python 3; no deps to install):
 echo '{"L4_requirements":{"c":4,"g":2},"L3_architecture":{"c":3,"g":3},"L2_design":{"c":2,"g":3},"L1_implementation":{"c":4,"g":4}}' \
-  | python3 skills/epistemic-debt/scripts/score.py
+  | python3 skills/debt/scripts/score.py
 ```
 
 Any layer may be omitted (PR mode often has no L4 signal); omitted layers are
@@ -49,7 +49,7 @@ grasp is *tested* with grounded questions about the actual code — never a
 self-rating (a self-rating measures confidence, not comprehension). This split is
 the core thesis; preserve it in any edit to `SKILL.md` or the probes reference.
 
-**Runtime flow.** `/epistemic-debt` (or a natural-language ask) → the skill runs
+**Runtime flow.** `/epistemic:debt` (or a natural-language ask) → the skill runs
 Phase 0 resolve scope → Phase 1 scan complexity → Phase 2 test grasp → Phase 3
 grade via `score.py` → Phase 4 write report + explain → Phase 5 optional
 quantitative escalation. `SKILL.md` is the authoritative description of this flow;
@@ -84,13 +84,13 @@ collapse this to "zero debt."
 ## Conventions specific to this repo
 
 - **Version bumps** must be applied in **both** `.claude-plugin/plugin.json` and
-  `.claude-plugin/marketplace.json` (they currently mirror each other at `1.0.0`).
+  `.claude-plugin/marketplace.json` (they currently mirror each other at `2.0.0`).
 - **Attribution is required.** Every run shows the credit notice for Antonino Rau
   before Phase 0, and the report template ends with the credit footer. Preserve the
   Substack links (`plugin.json` homepage, README, SKILL.md credit block, template
   footer) when editing.
 - **Invoke `score.py` by absolute path** from the skill —
-  `"${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"` — never rely on
+  `"${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/score.py"` — never rely on
   the shell's working directory (the skill runs against arbitrary target repos).
 - Reports are written by the *target* repo's run to
   `epistemic-debt/YYYY-MM-DD-{repo|pr-<ref>}.md`; that output dir is not part of
