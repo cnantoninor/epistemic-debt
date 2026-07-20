@@ -11,9 +11,10 @@ layers, then grade it with cascade discounting and recommend remediation.
 
 Complexity is **scanned** from the repo; grasp is **tested** (the
 framework treats it as undocumented — so we measure it directly). Full
-math, multipliers, and the optional quantitative model live in
-`references/framework.md` — load it when you need definitions or the
-break-even calculation.
+math and multipliers live in `references/framework.md` — load it when you
+need definitions or the break-even calculation. The grade is qualitative;
+a default-rate recovery estimate always runs (Phase 4), and a deeper
+re-run with the team's own rates is optional (Phase 5).
 
 ## Credit notice (show once, before Phase 0)
 

@@ -22,13 +22,16 @@ Usage (invoke by absolute path — see SKILL.md; do not rely on cwd):
            ]}' \
         | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/grasp.py"
 
-Any layer may be omitted; only layers actually probed need appear. Feed the
-resulting `g` (and `c`, from Phase 1) into `score.py` for the grade.
+Any layer may be omitted; only layers actually probed need appear. Unknown
+top-level keys are ignored (mirrors `score.py`). Feed the resulting `g`
+(and `c`, from Phase 1) into `score.py` for the grade.
 """
 from __future__ import annotations
 
 import json
 import sys
+
+from score import CASCADE  # co-located; reuse the canonical layer names
 
 # Confidence label → number, for respondents who answer in words rather
 # than a 0-1 figure. Matches the mapping in comprehension-probes.md.
@@ -118,10 +121,11 @@ def score_layer(answers: list[dict[str, object]]) -> dict[str, object]:
 
 def main() -> int:
     raw = json.load(sys.stdin)
-    if not raw:
+    layers = {name: v for name, v in raw.items() if name in CASCADE}
+    if not layers:
         print("No layers in input.", file=sys.stderr)
         return 1
-    result = {name: score_layer(answers) for name, answers in raw.items()}
+    result = {name: score_layer(answers) for name, answers in layers.items()}
     json.dump(result, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return 0

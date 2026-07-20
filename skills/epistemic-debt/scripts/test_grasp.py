@@ -151,6 +151,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("No layers", proc.stderr)
 
+    def test_cli_ignores_unknown_keys_alongside_recognised_layers(self):
+        # main() must filter to recognised layer names the same way
+        # score.py's does, so incidental keys don't reach score_layer()
+        # (which would otherwise try to iterate a string's characters).
+        proc = self._run(json.dumps({
+            "L1_implementation": [{"confidence": 0.7, "claims": [1.0]}],
+            "notes": "ignore me",
+        }))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertIn("L1_implementation", payload)
+        self.assertNotIn("notes", payload)
+
 
 if __name__ == "__main__":
     unittest.main()
