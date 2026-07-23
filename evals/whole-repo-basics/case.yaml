@@ -1,0 +1,117 @@
+schema_version: "1.0"
+name: whole-repo-basics
+description: >
+  Whole-repo mode on a tiny scaffolded repo: the run must show the Antonino Rau
+  credit notice before Phase 0, resolve scope as whole-repo (main branch, no
+  diff), scan complexity, and open Phase 2 with grounded probe questions about
+  the actual code — never a self-rating. Headless runs end when Phase 2 waits
+  for answers; graders only score Phases 0–2.
+tags: [smoke, whole-repo, phase0, phase2]
+
+context:
+  # Minimal target repo on `main` so Phase 0 resolves to whole-repo mode.
+  # The cache module carries a subtle invariant (eviction order vs TTL) so
+  # Phase 2 has something concrete to probe.
+  scaffold_script: |
+    set -euo pipefail
+    git init -q -b main .
+    mkdir -p src
+    cat > src/ttl_cache.py <<'EOF'
+    """In-memory TTL cache with LRU eviction.
+
+    Invariant: entries are evicted LRU-first, but an expired entry is always
+    evicted before any live entry regardless of recency. `_clock` is injectable
+    for tests; wall-clock drift between processes is NOT handled.
+    """
+    import time
+
+
+    class TTLCache:
+        def __init__(self, max_size=128, ttl_seconds=60.0, clock=time.monotonic):
+            self._max_size = max_size
+            self._ttl = ttl_seconds
+            self._clock = clock
+            self._data = {}   # key -> (value, expires_at)
+            self._order = []  # LRU order, oldest first
+
+        def get(self, key, default=None):
+            entry = self._data.get(key)
+            if entry is None:
+                return default
+            value, expires_at = entry
+            if self._clock() >= expires_at:
+                self._delete(key)
+                return default
+            self._touch(key)
+            return value
+
+        def put(self, key, value):
+            if key not in self._data and len(self._data) >= self._max_size:
+                self._evict_one()
+            self._data[key] = (value, self._clock() + self._ttl)
+            self._touch(key)
+
+        def _touch(self, key):
+            if key in self._order:
+                self._order.remove(key)
+            self._order.append(key)
+
+        def _evict_one(self):
+            now = self._clock()
+            for key in self._order:
+                if now >= self._data[key][1]:
+                    self._delete(key)
+                    return
+            self._delete(self._order[0])
+
+        def _delete(self, key):
+            self._data.pop(key, None)
+            self._order.remove(key)
+    EOF
+    cat > README.md <<'EOF'
+    # ttl-cache
+    Tiny in-memory TTL+LRU cache used by the ingestion workers.
+    EOF
+    git add -A
+    git -c user.email=eval@example.invalid -c user.name=eval commit -qm "init: ttl cache"
+
+execution:
+  prompt: "Run an epistemic debt assessment of this repository."
+  max_turns: 25
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Glob, Grep, Write]
+
+runs: 2
+
+graders:
+  - type: regex
+    name: credit-notice
+    target: trace
+    pattern: "Antonino Rau"
+    match: contains
+    weight: 1
+
+  - type: llm
+    name: whole-repo-scope
+    focus: trace
+    criteria: >
+      The assistant resolved the assessment scope as the whole repository
+      (not PR/diff mode). It did not claim to be measuring the marginal debt
+      of a change or diff.
+    weight: 1
+
+  - type: llm
+    name: grounded-probes-not-self-rating
+    focus: trace
+    criteria: >
+      In Phase 2 the assistant asked comprehension probe questions grounded in
+      the actual scanned code (e.g. referencing TTLCache, its eviction order,
+      TTL/expiry behavior, or the injectable clock). It never asked the
+      respondent to self-rate their own understanding on a numeric scale;
+      confidence, if requested, was asked per answer alongside a substantive
+      question, not as a substitute for one.
+    weight: 2
+
+expected_outcome: >
+  Credit notice, whole-repo scope resolution, complexity scan, then grounded
+  Phase 2 probes; the run pauses awaiting the respondent's answers.

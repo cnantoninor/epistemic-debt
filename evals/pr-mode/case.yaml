@@ -1,0 +1,98 @@
+schema_version: "1.0"
+name: pr-mode
+description: >
+  Scope auto-detection: a non-main branch with a non-empty diff vs origin/main
+  must put the run in PR mode, and everything must be phrased as marginal debt
+  the change introduces — not total repo debt.
+tags: [scope, pr-mode, phase0]
+
+context:
+  # Build a repo with a real origin/main ref (bare clone used as remote) and a
+  # feature branch whose diff adds an opaque retry helper — the marginal debt
+  # the run should measure.
+  scaffold_script: |
+    set -euo pipefail
+    git init -q -b main .
+    printf '.origin.git/\n' > .gitignore
+    mkdir -p src
+    cat > src/client.py <<'EOF'
+    """HTTP client wrapper for the billing API."""
+    import urllib.request
+
+
+    def fetch(url, timeout=10.0):
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            return resp.read()
+    EOF
+    git add -A
+    git -c user.email=eval@example.invalid -c user.name=eval commit -qm "init: billing client"
+    git clone -q --bare . .origin.git
+    git remote add origin "$PWD/.origin.git"
+    git fetch -q origin
+    git checkout -q -b feature/opaque-retry
+    cat > src/retry.py <<'EOF'
+    import random
+    import time
+
+    _M = [0.5, 1.3, 3.7, 9.1]
+
+
+    def r(f, *a, **k):
+        j = k.pop("_j", 0.4)
+        for i, m in enumerate(_M):
+            try:
+                return f(*a, **k)
+            except Exception:
+                if i == len(_M) - 1:
+                    raise
+                time.sleep(m * (1 + random.random() * j) ** (i % 3))
+    EOF
+    cat >> src/client.py <<'EOF'
+
+
+    def fetch_with_retry(url, timeout=10.0):
+        from .retry import r
+        return r(fetch, url, timeout=timeout, _j=0.7)
+    EOF
+    git add -A
+    git -c user.email=eval@example.invalid -c user.name=eval commit -qm "add retry helper"
+
+execution:
+  prompt: "/epistemic-debt"
+  max_turns: 25
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Glob, Grep, Write]
+
+runs: 2
+
+graders:
+  - type: regex
+    name: credit-notice
+    target: trace
+    pattern: "Antonino Rau"
+    match: contains
+    weight: 1
+
+  - type: llm
+    name: detects-pr-mode
+    focus: trace
+    criteria: >
+      The assistant detected PR mode: it recognized the non-main branch with a
+      diff against origin/main and scoped the assessment to the change (the
+      retry helper addition), not the whole repository.
+    weight: 2
+
+  - type: llm
+    name: marginal-debt-framing
+    focus: trace
+    criteria: >
+      The assessment is phrased as marginal epistemic debt introduced by the
+      change (e.g. "this PR/change adds/introduces"), and probes or findings
+      center on the diff content — the opaque retry logic (single-letter names,
+      magic backoff multipliers, undocumented jitter exponent) — rather than on
+      pre-existing code.
+    weight: 2
+
+expected_outcome: >
+  PR mode detected; the opaque retry helper is identified as the source of
+  marginal debt; probes target the diff.
