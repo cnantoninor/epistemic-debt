@@ -3,3 +3,4 @@ epistemic-debt-publish-guide.md
 __pycache__/
 *.pyc
 *:Zone.Identifier
+evals/results/

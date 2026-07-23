@@ -117,6 +117,15 @@ class ComputeRecoveryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compute_recovery({"L1_implementation": 1}, rates={"L1_implementation": -1})
 
+    def test_negative_gap_rejected(self):
+        with self.assertRaises(ValueError):
+            compute_recovery({"L1_implementation": -1})
+
+    def test_non_finite_gap_rejected(self):
+        for gap in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(gap=gap), self.assertRaises(ValueError):
+                compute_recovery({"L1_implementation": gap})
+
 
 class CliTests(unittest.TestCase):
     def _run(self, stdin_text: str) -> subprocess.CompletedProcess:

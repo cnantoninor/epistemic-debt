@@ -87,12 +87,15 @@ deepening (Phase 5).
 **Recovery time per layer** — time to close the gap once you decide to:
 
 ```
-τₖ = (Cₛ,ₖ(t₀) − Gₑ,ₖ(t₀)) / rₖ
+gapₖ = max(0, Cₛ,ₖ(t₀) − Gₑ,ₖ(t₀))
+τₖ = gapₖ / rₖ
 ```
 
 - `t₀` — the moment the team recognises and starts closing the gap.
   Earlier `t₀` = narrower gap = cheaper recovery.
 - `rₖ` — learning rate at layer k (empirical; ask the team).
+- Surplus grasp is epistemic credit, not negative recovery time, so `gapₖ`
+  is floored at zero exactly as it is in `scripts/score.py`.
 
 **Default learning rates (for the always-on estimate).** Real `rₖ` are
 empirical and team-specific, but the report includes a recovery estimate so

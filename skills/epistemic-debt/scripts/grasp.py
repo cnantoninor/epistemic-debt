@@ -29,6 +29,7 @@ top-level keys are ignored (mirrors `score.py`). Feed the resulting `g`
 from __future__ import annotations
 
 import json
+import math
 import sys
 
 from score import CASCADE  # co-located; reuse the canonical layer names
@@ -59,13 +60,17 @@ def _confidence_value(confidence: float | str) -> float:
         if label in CONFIDENCE_LABELS:
             return CONFIDENCE_LABELS[label]
         try:
-            return float(label)
+            value = float(label)
         except ValueError:
             raise ValueError(
                 f"Unknown confidence label {confidence!r}; "
                 f"expected one of {sorted(CONFIDENCE_LABELS)} or a 0-1 number."
             ) from None
-    return float(confidence)
+    else:
+        value = float(confidence)
+    if not math.isfinite(value) or not 0 <= value <= 1:
+        raise ValueError(f"Confidence must be a finite number from 0 to 1; got {confidence!r}.")
+    return value
 
 
 def _mean(values: list[float]) -> float:
@@ -87,6 +92,8 @@ def score_answer(answer: dict[str, object]) -> dict[str, float]:
     claims = [float(c) for c in answer["claims"]]  # type: ignore[arg-type]
     if not claims:
         raise ValueError("Answer has no claims to grade.")
+    if any(not math.isfinite(claim) or not 0 <= claim <= 1 for claim in claims):
+        raise ValueError(f"Claim scores must be finite numbers from 0 to 1; got {claims!r}.")
     return {
         "confidence": _confidence_value(answer["confidence"]),  # type: ignore[arg-type]
         "correctness": _mean(claims),
@@ -101,12 +108,12 @@ def score_layer(answers: list[dict[str, object]]) -> dict[str, object]:
     scored = [score_answer(a) for a in answers]
     correctness = _mean([a["correctness"] for a in scored])
     confidence = _mean([a["confidence"] for a in scored])
-    gap = confidence - correctness
+    gap = round(confidence - correctness, 3)
     return {
         "g": round(correctness * SCALE_MAX),
         "correctness": round(correctness, 3),
         "confidence": round(confidence, 3),
-        "gap": round(gap, 3),
+        "gap": gap,
         "flag": _calibration_flag(gap),
         "answers": [
             {

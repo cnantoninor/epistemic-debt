@@ -26,6 +26,7 @@ verdict; without it the verdict is left null pending that input.
 from __future__ import annotations
 
 import json
+import math
 import sys
 
 from score import CASCADE  # co-located; reuse the canonical cascade weights
@@ -58,6 +59,8 @@ def compute_recovery(
     for name, gap in gaps.items():
         if name not in CASCADE:
             raise ValueError(f"Unknown layer {name!r}.")
+        if not math.isfinite(gap) or gap < 0:
+            raise ValueError(f"Gap for {name!r} must be a finite number >= 0.")
         using_default = name not in rates
         rate = rates.get(name, DEFAULT_RATES[name])
         if rate <= 0:

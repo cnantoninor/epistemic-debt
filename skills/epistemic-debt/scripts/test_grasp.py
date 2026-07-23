@@ -44,6 +44,16 @@ class ConfidenceValueTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             _confidence_value("pretty sure")
 
+    def test_rejects_confidence_outside_zero_to_one(self):
+        for confidence in (-0.1, 1.1, "-0.1", "1.1"):
+            with self.subTest(confidence=confidence), self.assertRaises(ValueError):
+                _confidence_value(confidence)
+
+    def test_rejects_non_finite_confidence(self):
+        for confidence in (float("nan"), float("inf"), "-inf"):
+            with self.subTest(confidence=confidence), self.assertRaises(ValueError):
+                _confidence_value(confidence)
+
 
 class CalibrationFlagTests(unittest.TestCase):
     # Hand-checked against the ±0.3 thresholds in comprehension-probes.md.
@@ -74,6 +84,11 @@ class ScoreAnswerTests(unittest.TestCase):
     def test_empty_claims_rejected(self):
         with self.assertRaises(ValueError):
             score_answer({"confidence": 0.5, "claims": []})
+
+    def test_claim_scores_must_be_finite_and_between_zero_and_one(self):
+        for claim in (-0.1, 1.1, float("nan"), float("inf")):
+            with self.subTest(claim=claim), self.assertRaises(ValueError):
+                score_answer({"confidence": 0.5, "claims": [claim]})
 
 
 class ScoreLayerTests(unittest.TestCase):
@@ -120,6 +135,11 @@ class ScoreLayerTests(unittest.TestCase):
         result = score_layer(answers)
         # gap = 0.9 - 0.6 = 0.3 (exactly at the overconfident threshold)
         self.assertAlmostEqual(result["gap"], 0.3)
+        self.assertEqual(result["flag"], "overconfident")
+
+    def test_common_labels_classify_at_displayed_threshold(self):
+        result = score_layer([{"confidence": 0.7, "claims": [0.4]}])
+        self.assertEqual(result["gap"], 0.3)
         self.assertEqual(result["flag"], "overconfident")
 
     def test_empty_answers_rejected(self):
