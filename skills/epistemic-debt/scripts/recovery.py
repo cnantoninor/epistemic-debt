@@ -102,7 +102,11 @@ def compute_recovery(
 def main() -> int:
     raw = json.load(sys.stdin)
     gaps = raw.get("gaps")
-    if not gaps:
+    # Distinguish a missing key (invalid) from an empty map (valid): Phase 4
+    # always invokes this, and an empty `gaps` is legitimate when every
+    # assessed layer carries epistemic credit (all gaps floored to 0) or the
+    # caller omitted zero-valued layers. compute_recovery({}) returns zeros.
+    if gaps is None:
         print("No 'gaps' in input.", file=sys.stderr)
         return 1
     result = compute_recovery(gaps, raw.get("rates"), raw.get("delta"))

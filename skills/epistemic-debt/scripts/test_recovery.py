@@ -105,6 +105,18 @@ class ComputeRecoveryTests(unittest.TestCase):
         self.assertIsNone(result["net_benefit"])
         self.assertIsNone(result["breakeven_exceeded"])
 
+    def test_empty_gaps_yields_zero_recovery(self):
+        # Valid when every assessed layer carries epistemic credit (gaps
+        # floored to 0) or zero-valued layers were omitted — no debt to recover.
+        result = compute_recovery({})
+        self.assertEqual(result["per_layer"], {})
+        self.assertEqual(result["t_recovery"], 0.0)
+        self.assertEqual(result["weighted_cost"], 0.0)
+        self.assertFalse(result["estimate"])
+        self.assertIsNone(result["delta"])
+        self.assertIsNone(result["net_benefit"])
+        self.assertIsNone(result["breakeven_exceeded"])
+
     def test_unknown_layer_rejected(self):
         with self.assertRaises(ValueError):
             compute_recovery({"not_a_layer": 1})
@@ -148,6 +160,16 @@ class CliTests(unittest.TestCase):
         proc = self._run("{}")
         self.assertEqual(proc.returncode, 1)
         self.assertIn("No 'gaps'", proc.stderr)
+
+    def test_cli_accepts_empty_gaps(self):
+        # An empty gaps map (all layers carry credit / were omitted) is valid
+        # and must produce zeroed recovery output, not a rejection.
+        proc = self._run(json.dumps({"gaps": {}}))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["per_layer"], {})
+        self.assertEqual(payload["t_recovery"], 0.0)
+        self.assertEqual(payload["weighted_cost"], 0.0)
 
     def test_cli_runs_from_arbitrary_cwd(self):
         # Regression check for the `from score import CASCADE` co-located
