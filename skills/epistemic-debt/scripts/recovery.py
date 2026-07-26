@@ -53,6 +53,7 @@ def compute_recovery(
 ) -> dict[str, object]:
     rates = rates or {}
     per_layer: dict[str, dict[str, object]] = {}
+    raw_tau: dict[str, float] = {}
     t_recovery = 0.0
     weighted_cost = 0.0
 
@@ -63,9 +64,10 @@ def compute_recovery(
             raise ValueError(f"Gap for {name!r} must be a finite number >= 0.")
         using_default = name not in rates
         rate = rates.get(name, DEFAULT_RATES[name])
-        if rate <= 0:
-            raise ValueError(f"Rate for {name!r} must be > 0.")
+        if not isinstance(rate, (int, float)) or isinstance(rate, bool) or not math.isfinite(rate) or rate <= 0:
+            raise ValueError(f"Rate for {name!r} must be a finite number > 0; got {rate!r}.")
         tau = gap / rate
+        raw_tau[name] = tau
         per_layer[name] = {
             "gap": gap,
             "rate": rate,
@@ -75,11 +77,14 @@ def compute_recovery(
         t_recovery += tau
         weighted_cost += CASCADE[name] * tau
 
+    # Accumulate from the unrounded taus (not the rounded per_layer["tau"])
+    # so the last layer's cumulative_cost always matches t_recovery, instead
+    # of drifting from independently-rounded per-layer values.
     cumulative = 0.0
     for name in LAYER_ORDER:
         if name not in per_layer:
             continue
-        cumulative += per_layer[name]["tau"]
+        cumulative += raw_tau[name]
         per_layer[name]["cumulative_cost"] = round(cumulative, 3)
 
     net_benefit = None

@@ -138,6 +138,34 @@ class ComputeRecoveryTests(unittest.TestCase):
             with self.subTest(gap=gap), self.assertRaises(ValueError):
                 compute_recovery({"L1_implementation": gap})
 
+    def test_non_finite_or_non_numeric_rate_rejected(self):
+        # Rate validation must catch the same non-finite/invalid inputs gap
+        # validation already rejects, rather than silently propagating NaN
+        # (nan <= 0 is False), collapsing tau to 0 (inf <= 0 is False), or
+        # raising an unhelpful TypeError (None <= 0).
+        for rate in (float("nan"), float("inf"), float("-inf"), None):
+            with self.subTest(rate=rate), self.assertRaises(ValueError):
+                compute_recovery({"L1_implementation": 1}, rates={"L1_implementation": rate})
+
+    def test_cumulative_cost_matches_t_recovery_despite_per_layer_rounding(self):
+        # Regression: with default rates (L1=2.0, L2=1.0), tau_L1 = (1/7)/2
+        # = 0.0714285... and tau_L2 = (4/7)/1 = 0.5714285.... Previously
+        # cumulative_cost summed each layer's already-rounded tau (0.071 +
+        # 0.571 = 0.642), while t_recovery summed the unrounded taus and
+        # rounded once at the end (0.0714285... + 0.5714285... = 0.6428571...
+        # -> 0.643) — a 0.001 mismatch between two values meant to represent
+        # the same total. Both must now derive from the same unrounded
+        # values so the last layer's cumulative_cost always equals
+        # t_recovery.
+        gaps = {
+            "L1_implementation": 1 / 7,
+            "L2_design": 4 / 7,
+        }
+        result = compute_recovery(gaps)
+        last_cumulative = result["per_layer"]["L2_design"]["cumulative_cost"]
+        self.assertEqual(last_cumulative, result["t_recovery"])
+        self.assertEqual(last_cumulative, 0.643)
+
 
 class CliTests(unittest.TestCase):
     def _run(self, stdin_text: str) -> subprocess.CompletedProcess:
