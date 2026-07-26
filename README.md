@@ -10,6 +10,11 @@ humans can actually understand it.
 📖 **Read the framework:** [Epistemic Debt: The Math, The Cost](https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost)
 ✍️ **More writing:** [antoninorau.substack.com](https://antoninorau.substack.com/)
 
+> ⚠️ **This is an estimate, not a fact.** The grade is produced by a purely
+> speculative math framework (see the article above) — it has not been
+> empirically validated. Use it as a structured prompt for discussion, not
+> ground truth.
+
 ## Why it's different
 
 A linter measures the *code*. A self-assessment measures your *confidence*.
