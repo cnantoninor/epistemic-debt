@@ -89,6 +89,15 @@ def score_answer(answer: dict[str, object]) -> dict[str, float]:
     """One answer's aggregate: confidence (per-answer) and correctness
     (mean over its claims — an articulated answer may assert several
     distinct, separately-graded claims)."""
+    if not isinstance(answer, dict):
+        raise ValueError(
+            f"Each answer must be an object with 'confidence' and 'claims'; got {answer!r}."
+        )
+    missing = {"confidence", "claims"} - answer.keys()
+    if missing:
+        raise ValueError(f"Answer is missing {sorted(missing)}; got {answer!r}.")
+    if not isinstance(answer["claims"], list):
+        raise ValueError(f"Answer 'claims' must be a list of 0-1 scores; got {answer['claims']!r}.")
     claims = [float(c) for c in answer["claims"]]  # type: ignore[arg-type]
     if not claims:
         raise ValueError("Answer has no claims to grade.")
@@ -103,6 +112,11 @@ def score_answer(answer: dict[str, object]) -> dict[str, float]:
 
 def score_layer(answers: list[dict[str, object]]) -> dict[str, object]:
     """Aggregate a layer's answers into Gₑ and the calibration gap."""
+    # A layer's payload is a *list* of answers. A single answer passed as a
+    # bare object (or a stray string) would otherwise be iterated element-wise
+    # — over dict keys or characters — and fail deep inside score_answer.
+    if not isinstance(answers, list):
+        raise ValueError(f"Layer must be a list of answer objects; got {answers!r}.")
     if not answers:
         raise ValueError("Layer has no answers to grade.")
     scored = [score_answer(a) for a in answers]

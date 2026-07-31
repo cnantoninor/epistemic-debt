@@ -147,6 +147,27 @@ class ComputeRecoveryTests(unittest.TestCase):
             with self.subTest(rate=rate), self.assertRaises(ValueError):
                 compute_recovery({"L1_implementation": 1}, rates={"L1_implementation": rate})
 
+    def test_non_numeric_gap_rejected(self):
+        # bool subclasses int, so JSON `true` previously passed math.isfinite
+        # and became a gap of 1; a string made math.isfinite raise TypeError
+        # rather than a legible validation error.
+        for gap in (True, False, "3", None, [1]):
+            with self.subTest(gap=gap), self.assertRaises(ValueError):
+                compute_recovery({"L1_implementation": gap})
+
+    def test_non_numeric_rate_rejected(self):
+        for rate in (True, "2", [2]):
+            with self.subTest(rate=rate), self.assertRaises(ValueError):
+                compute_recovery({"L1_implementation": 1}, rates={"L1_implementation": rate})
+
+    def test_non_finite_or_non_numeric_delta_rejected(self):
+        # NaN delta made `weighted_cost > delta` False, reporting
+        # "break-even not exceeded" for an input with no verdict to give
+        # (and emitting a bare NaN literal, which is not valid JSON).
+        for delta in (float("nan"), float("inf"), float("-inf"), True, "10", [10]):
+            with self.subTest(delta=delta), self.assertRaises(ValueError):
+                compute_recovery({"L1_implementation": 1}, delta=delta)
+
     def test_cumulative_cost_matches_t_recovery_despite_per_layer_rounding(self):
         # Regression: with default rates (L1=2.0, L2=1.0), tau_L1 = (1/7)/2
         # = 0.0714285... and tau_L2 = (4/7)/1 = 0.5714285.... Previously

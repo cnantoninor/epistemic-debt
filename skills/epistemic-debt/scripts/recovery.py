@@ -46,6 +46,19 @@ DEFAULT_RATES = {
 LAYER_ORDER = ["L1_implementation", "L2_design", "L3_architecture", "L4_requirements"]
 
 
+def _check_number(value: object, description: str) -> float:
+    """Reject anything JSON can supply that is not a real, finite number.
+
+    `bool` is excluded explicitly because it subclasses `int`, so JSON
+    `true` would otherwise sail through as a gap/delta of 1; strings are
+    excluded because `math.isfinite` raises `TypeError` on them rather
+    than producing a legible validation error.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{description} must be a finite number; got {value!r}.")
+    return value
+
+
 def compute_recovery(
     gaps: dict[str, float],
     rates: dict[str, float] | None = None,
@@ -60,11 +73,12 @@ def compute_recovery(
     for name, gap in gaps.items():
         if name not in CASCADE:
             raise ValueError(f"Unknown layer {name!r}.")
-        if not math.isfinite(gap) or gap < 0:
-            raise ValueError(f"Gap for {name!r} must be a finite number >= 0.")
+        gap = _check_number(gap, f"Gap for {name!r}")
+        if gap < 0:
+            raise ValueError(f"Gap for {name!r} must be a finite number >= 0; got {gap!r}.")
         using_default = name not in rates
-        rate = rates.get(name, DEFAULT_RATES[name])
-        if not isinstance(rate, (int, float)) or isinstance(rate, bool) or not math.isfinite(rate) or rate <= 0:
+        rate = _check_number(rates.get(name, DEFAULT_RATES[name]), f"Rate for {name!r}")
+        if rate <= 0:
             raise ValueError(f"Rate for {name!r} must be a finite number > 0; got {rate!r}.")
         tau = gap / rate
         raw_tau[name] = tau
@@ -90,6 +104,10 @@ def compute_recovery(
     net_benefit = None
     breakeven_exceeded = None
     if delta is not None:
+        # Same guard as gaps and rates: an unvalidated NaN here would make
+        # `weighted_cost > delta` false and report "break-even not exceeded"
+        # for an input that never had a verdict to give.
+        delta = _check_number(delta, "delta")
         net_benefit = round(delta - weighted_cost, 3)
         breakeven_exceeded = weighted_cost > delta
 

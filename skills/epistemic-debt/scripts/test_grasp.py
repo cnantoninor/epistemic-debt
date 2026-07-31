@@ -146,6 +146,21 @@ class ScoreLayerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             score_layer([])
 
+    def test_non_list_layer_payload_rejected(self):
+        # A single answer sent as a bare object, or a stray scalar, was
+        # iterated element-wise (dict keys / string characters) and died
+        # with a TypeError deep inside score_answer instead of a clear
+        # validation error naming the real problem.
+        for payload in ({"confidence": 0.7, "claims": [1.0]}, "oops", 3, None):
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                score_layer(payload)
+
+    def test_malformed_answer_rejected(self):
+        for answer in ("oops", 3, None, {"claims": [1.0]}, {"confidence": 0.7},
+                       {"confidence": 0.7, "claims": 1.0}):
+            with self.subTest(answer=answer), self.assertRaises(ValueError):
+                score_answer(answer)
+
 
 class CliTests(unittest.TestCase):
     def _run(self, stdin_text: str) -> subprocess.CompletedProcess:
