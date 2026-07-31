@@ -161,7 +161,8 @@ essentials:
   If unset, ask the respondent **via `AskUserQuestion`**, explaining the
   tradeoff in the option descriptions: free-text is the deeper, un-guessable
   signal but slower; multiple-choice is fast and structured but guessable
-  (recognition ≠ recall, so it over-states grasp).
+  (recognition ≠ recall, so it over-states grasp — and the 4-option cap
+  leaves only 3 distractors, so a guess starts at 25%).
 - For each layer present, ask `questions-per-layer` questions. If not set
   explicitly, derive the count from the change-size depth table in
   `references/comprehension-probes.md` (whole-repo = max). Sample parts
@@ -262,11 +263,15 @@ mistaken for the team's calibrated figures.
 
 ## Phase 5 — Quantitative deepening with real rates (optional, non-blocking)
 
-The report already carries a default-rate estimate (Phase 4), so this never
-blocks the useful output. Offer it **via `AskUserQuestion`** — but don't
-wait on it — a re-run passing the
-team's **own** learning rates and the AI-time-saved `δ` to the same
-`scripts/recovery.py` call (via its `rates` and `delta` input fields) for a
-calibrated `τₖ`/`T_recovery` and a real break-even verdict. Only compute it
-once the user supplies those inputs; until then the delivered report
-stands on its own.
+The report is already written and delivered, carrying a default-rate estimate
+(Phase 4). *That* is what makes this phase non-blocking — not the shape of
+the question. So offer it **via `AskUserQuestion`** like every other
+question: by the time you ask, the useful output is on disk and explained,
+and a declined or ignored offer costs the user nothing.
+
+The offer is a re-run passing the team's **own** learning rates and the
+AI-time-saved `δ` to the same `scripts/recovery.py` call (via its `rates`
+and `delta` input fields), for a calibrated `τₖ`/`T_recovery` and a real
+break-even verdict. Only compute it once the user supplies those inputs; if
+they decline, the delivered report stands on its own — end the run there
+rather than pressing.
