@@ -52,17 +52,33 @@ graders:
       question, not as a substitute for one.
     weight: 2
 
+  # NOTE: this grades the *structure*, not an AskUserQuestion call. That tool
+  # is interactive-only and is simply absent from headless eval sessions (see
+  # the session tool list in any trace) — it is not gated, so no
+  # --allow-tools grant can produce it. The skill's documented fallback is
+  # prose carrying the same batching, labels and pairing, which is what a
+  # headless run will emit and what this grader scores.
   - type: llm
     name: probes-interleaved-with-confidence
     focus: trace
     criteria: >
-      In the first Phase 2 AskUserQuestion call, every comprehension probe is
-      immediately followed by a question rating confidence in that same
-      probe's answer (options along the lines of
-      Guessing / Somewhat / Confident / Certain), probe first. The call holds
-      at most two probes, so it is either [probe, confidence] or
-      [probe, confidence, probe, confidence] — never several probes bundled
-      together with their confidence questions deferred to a later call.
+      When Phase 2 first puts questions to the respondent, every comprehension
+      probe is immediately followed by a request to rate confidence in that
+      same probe's answer (options along the lines of
+      Guessing / Somewhat / Confident / Certain), probe first, referring to
+      the probe by its label. At most two probes are put to the respondent
+      before the run pauses for answers, so the batch is either
+      [probe, confidence] or [probe, confidence, probe, confidence] — never
+      several probes bundled together with their confidence questions
+      deferred until after the answers come back.
+    weight: 1
+
+  # Phase tracking is gradable headlessly: TaskCreate/TaskUpdate *are* in the
+  # eval session's tool list.
+  - type: tool_used
+    name: phases-tracked-in-task-list
+    tool: TaskCreate
+    min: 1
     weight: 1
 
 expected_outcome: >

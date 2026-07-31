@@ -39,6 +39,15 @@ free-text answer is still collected through `AskUserQuestion` — the
 respondent uses the automatically-provided "Other" field to type their
 answer; state that in the question text.
 
+**If `AskUserQuestion` is not available in the session, ask in chat prose but
+keep the structure.** The tool is interactive-only, so headless and
+non-interactive runs simply don't have it — there is nothing to grant and no
+error to work around. Fall back to prose that preserves everything the
+structure is *for*: the same batching (at most two probes at a time), each
+probe immediately followed by its own confidence question, the same labels
+and the same four confidence options. Prose is the fallback when there is no
+tool to call — never a stylistic choice when there is one.
+
 **Every Phase 2 probe is immediately followed by its own confidence question
 in the same call.** Pack **at most two probes per `AskUserQuestion` call**,
 interleaved probe → confidence → probe → confidence (that is the tool's

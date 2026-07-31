@@ -32,13 +32,19 @@ skills/epistemic-debt/
   scripts/test_score.py             # Unit + CLI tests for score.py
   scripts/test_grasp.py             # Unit + CLI tests for grasp.py
   scripts/test_recovery.py          # Unit + CLI tests for recovery.py
+evals/
+  README.md                # How to run the suite + case-authoring notes
+  <case>/case.yaml         # One eval case: prompt, graders, weights
+  <case>/scaffold.sh       # Builds that case's throwaway target repo
+  results/                 # Run output (gitignored)
 ```
 
 ## The commands that matter
 
 Everything else is markdown Claude reads at runtime. The three scripts are the
-only things you can execute and test directly — all stdlib-only Python 3, no
-deps to install:
+only *code* you can execute directly — all stdlib-only Python 3, no deps to
+install — while the prompt-driven behavior around them is exercised by the
+eval suite in `evals/`:
 
 ```bash
 # score.py — cascade-weighted grade from per-layer complexity/grasp:
@@ -72,6 +78,27 @@ python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"
 There is still no linter or CI configured. Add tests alongside any change to
 a script's math; don't rely on ad-hoc manual runs to validate a formula.
 
+**Eval suite.** The behavior that lives in markdown — scope resolution, the
+credit notice, grounded (never self-rated) probes, routing every number
+through the scripts, phase tracking — is scored by `claude plugin eval`
+cases under `evals/`, one directory per case. From the repo root:
+
+```bash
+claude plugin eval . --scaffold --allow-tools Bash Write
+```
+
+`--scaffold` is required (each case builds its own throwaway target repo);
+`evals/README.md` has the case table, the grader types and the authoring
+notes. **Changing prompt behavior means adding or updating a grader** — the
+unit tests cannot see any of it.
+
+Two constraints shape what a case can assert, both learned the hard way:
+eval runs are **headless**, so `AskUserQuestion` is absent from the session
+entirely (interactive-only — not gated, so no `--allow-tools` grant
+conjures it) and a grader must score the *structure* of what was asked, not
+the call; and with no respondent, any case reaching Phase 2 without
+pre-supplied answers stops there. `TaskCreate`/`TaskUpdate` *are* available.
+
 ## Architecture / big picture
 
 **Two-source design (`Cₛ` vs `Gₑ`).** Complexity is *scanned* from the repo;
@@ -99,9 +126,12 @@ inputs must yield the same numbers.
   L4=30**. `framework.md` documents the source's *ranges* (e.g. L4 30–70×)
   but explicitly defers to the script's fixed values.
 - `grasp.py` holds the claim/answer aggregation (`answer correctness =
-  mean(claim correctness)`, `Gₑ = round(correctness × 5)`) and the
-  calibration gap/flag thresholds. `comprehension-probes.md` documents the
-  protocol for *generating* the inputs; the script owns aggregating them.
+  mean(claim correctness)`, `Gₑ = round(correctness × 5)`), the calibration
+  gap/flag thresholds, and `CONFIDENCE_LABELS` — the
+  Guessing/Somewhat/Confident/Certain → 0.1/0.4/0.7/0.95 map that `SKILL.md`
+  and `comprehension-probes.md` quote when phrasing the confidence question.
+  `comprehension-probes.md` documents the protocol for *generating* the
+  inputs; the script owns aggregating them.
 - `recovery.py` holds `DEFAULT_RATES`, `τₖ`, `T_recovery`, `Cₖ`, and the
   break-even check, importing `CASCADE` from `score.py` rather than
   duplicating it. `framework.md` documents the model; the script computes it.
@@ -139,7 +169,10 @@ measurement and the calibration gap depends on it, so don't "optimise" this
 into per-layer sweeps — sweeps also cost *more* calls, not fewer. The
 counter-pressure on packing two probes together is **leakage**: the
 respondent sees both before answering either, so probes sharing a call must
-come from different parts, else drop to one.
+come from different parts, else drop to one. `AskUserQuestion` is
+interactive-only, so a headless session doesn't have it at all — `SKILL.md`
+gives a prose fallback that keeps the batching, labels and pairing, which is
+also the only form the evals can observe.
 
 ## Conventions specific to this repo
 

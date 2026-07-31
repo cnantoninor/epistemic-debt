@@ -111,7 +111,9 @@ round-trips justifies it.
    message immediately before the call, labelled (`L1-Q2`), and have that
    question's text refer to its label — with two probes in one call the
    labels are what keeps the snippets and questions matched up. At most 4
-   options; a free-text answer is typed into the call's "Other" field.
+   options; a free-text answer is typed into the call's "Other" field. Where
+   the tool is absent (headless runs don't have it), prose carries the same
+   batching, labels and pairing — see the fallback in `SKILL.md`.
 3. Ask **confidence as the question immediately after its probe, in the same
    call**, so it is rated with the answer in hand and before anything is
    revealed — options Guessing / Somewhat / Confident / Certain → 0.1 / 0.4 /

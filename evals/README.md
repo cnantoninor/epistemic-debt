@@ -12,7 +12,7 @@ unit tests can't reach (the scripts' math is covered by
 
 | Case | What it scores |
 | --- | --- |
-| `whole-repo-basics` | Credit notice before Phase 0, whole-repo scope resolution, Phase 2 probes grounded in the scanned code (never self-ratings). Headless runs stop when Phase 2 waits for answers — only Phases 0–2 are graded. |
+| `whole-repo-basics` | Credit notice before Phase 0, whole-repo scope resolution, Phase 2 probes grounded in the scanned code (never self-ratings), each probe paired with its own confidence question, and phase tracking in the task list. Headless runs stop when Phase 2 waits for answers — only Phases 0–2 are graded. |
 | `no-git-whole-repo` | Phase 0 on a **non-git** directory (scaffold has no `git init`): must resolve to whole-repo mode on the cwd, without attempting a PR/diff or treating the missing repo as an error. Headless runs stop when Phase 2 waits — only Phases 0–2 are graded. |
 | `pr-mode` | Scope auto-detection: feature branch + diff vs `origin/main` → PR mode, with everything phrased as *marginal* debt of the diff (an intentionally opaque retry helper). |
 | `scripted-math` | End-to-end run with probe answers supplied up front: every number must come from `grasp.py` / `score.py` / `recovery.py` (checked via `tool_used` / `tool_order` graders), and the written report must carry the attribution footer. |
@@ -47,3 +47,13 @@ Results land in `evals/results/<timestamp>/` (gitignored).
   `file_exists` (also created-files only), `llm` (judged by a small model;
   override with `--judge-model`), `baseline`.
 - Keep grader names unique within a case; `weight` skews the case score.
+- **`AskUserQuestion` does not exist in an eval session.** It is
+  interactive-only, so it is absent from the run's tool list rather than
+  gated — `--allow-tools` cannot grant it and `allowed_tools` cannot request
+  it. Never write a grader that expects the call; grade the *structure* of
+  the questions instead (the skill's documented prose fallback preserves the
+  batching, labels and probe→confidence pairing). `TaskCreate` / `TaskUpdate`
+  **are** available, so phase tracking is gradable with `tool_used`.
+- Headless runs have no respondent, so any case that reaches Phase 2 without
+  supplying answers up front stops there. Score Phases 0–2 only, or pre-supply
+  probe results in the prompt the way `scripted-math` does.
