@@ -14,7 +14,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from score import SCALE_MAX, _band, check_number, compute_grade, layer_gap  # noqa: E402
+from score import (  # noqa: E402
+    SCALE_MAX,
+    _band,
+    check_mapping,
+    check_number,
+    compute_grade,
+    layer_gap,
+)
 
 SCRIPT = Path(__file__).resolve().parent / "score.py"
 
@@ -58,7 +65,26 @@ class CheckNumberTests(unittest.TestCase):
                 check_number(value, "x", minimum=0, maximum=5)
 
 
+class CheckMappingTests(unittest.TestCase):
+    def test_accepts_dict(self):
+        self.assertEqual(check_mapping({"c": 1}, "x"), {"c": 1})
+
+    def test_rejects_non_objects(self):
+        for value in ([1, 2], "text", 3, None):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                check_mapping(value, "x")
+
+
 class ComputeGradeInputTests(unittest.TestCase):
+    def test_rejects_layer_payload_that_is_not_an_object(self):
+        with self.assertRaises(ValueError):
+            compute_grade({"L1_implementation": [1, 2]})
+
+    def test_rejects_layer_missing_c_or_g(self):
+        for layer in ({"c": 3}, {"g": 3}, {}):
+            with self.subTest(layer=layer), self.assertRaises(ValueError):
+                compute_grade({"L1_implementation": layer})
+
     def test_rejects_boolean_scores(self):
         for layer in ({"c": True, "g": 0}, {"c": 4, "g": False}):
             with self.subTest(layer=layer), self.assertRaises(ValueError):
@@ -203,6 +229,19 @@ class CliTests(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertIn("L1_implementation", payload["per_layer"])
         self.assertNotIn("notes", payload["per_layer"])
+
+    def test_cli_reports_malformed_stdin_without_a_stack_trace(self):
+        # Every failure mode is exit 1 plus one legible line on stderr: the
+        # skill reads that stderr, and a traceback buries the sentence that
+        # says what was wrong with the input.
+        for stdin_text in ("[1, 2, 3]", "not json", '{"L1_implementation": [1, 2]}',
+                           '{"L1_implementation": {"c": 3}}',
+                           '{"L1_implementation": {"c": true, "g": 1}}'):
+            with self.subTest(stdin_text=stdin_text):
+                proc = self._run(stdin_text)
+                self.assertEqual(proc.returncode, 1)
+                self.assertNotIn("Traceback", proc.stderr)
+                self.assertTrue(proc.stderr.strip())
 
 
 if __name__ == "__main__":

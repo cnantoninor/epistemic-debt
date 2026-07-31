@@ -31,7 +31,11 @@ from __future__ import annotations
 import json
 import sys
 
-from score import CASCADE, check_number  # co-located; canonical names + input guard
+from score import (  # co-located; canonical names + shared input guards
+    CASCADE,
+    check_number,
+    load_object,
+)
 
 # Confidence label → number, for respondents who answer in words rather
 # than a 0-1 figure. Matches the mapping in comprehension-probes.md.
@@ -160,12 +164,16 @@ def score_layer(answers: list[dict[str, object]]) -> dict[str, object]:
 
 
 def main() -> int:
-    raw = json.load(sys.stdin)
-    layers = {name: v for name, v in raw.items() if name in CASCADE}
-    if not layers:
-        print("No layers in input.", file=sys.stderr)
+    try:
+        raw = load_object(sys.stdin)
+        layers = {name: v for name, v in raw.items() if name in CASCADE}
+        if not layers:
+            print("No layers in input.", file=sys.stderr)
+            return 1
+        result = {name: score_layer(answers) for name, answers in layers.items()}
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 1
-    result = {name: score_layer(answers) for name, answers in layers.items()}
     json.dump(result, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return 0

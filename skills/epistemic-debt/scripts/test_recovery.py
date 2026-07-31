@@ -220,6 +220,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["t_recovery"], 0.0)
         self.assertEqual(payload["weighted_cost"], 0.0)
 
+    def test_cli_reports_malformed_stdin_without_a_stack_trace(self):
+        # Same contract as the other two CLIs: exit 1, one legible line, no
+        # traceback from .items() or .get().
+        for stdin_text in ("[1, 2, 3]", "not json", '{"gaps": [1, 2]}',
+                           '{"gaps": {"L1_implementation": 1}, "rates": [1]}',
+                           '{"gaps": {"L1_implementation": true}}'):
+            with self.subTest(stdin_text=stdin_text):
+                proc = self._run(stdin_text)
+                self.assertEqual(proc.returncode, 1)
+                self.assertNotIn("Traceback", proc.stderr)
+                self.assertTrue(proc.stderr.strip())
+
     def test_cli_runs_from_arbitrary_cwd(self):
         # Regression check for the `from score import CASCADE` co-located
         # import: must resolve via the script's own directory on sys.path,

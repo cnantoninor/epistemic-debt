@@ -125,10 +125,14 @@ inputs must yield the same numbers.
 - `score.py` holds the canonical cascade multipliers **L1=1, L2=4, L3=10,
   L4=30**. `framework.md` documents the source's *ranges* (e.g. L4 30–70×)
   but explicitly defers to the script's fixed values. It also owns
-  `check_number`, the shared input guard the other two import — it rejects
-  JSON booleans explicitly, because `bool` subclasses `int` and a stray
-  `true` would otherwise score as a full-credit claim, a maximum confidence
-  or a one-point gap, turning malformed input into a plausible grade.
+  the shared input guards the other two import: `check_number` (rejects JSON
+  booleans explicitly — `bool` subclasses `int`, so a stray `true` would
+  otherwise score as a full-credit claim, a maximum confidence or a
+  one-point gap, turning malformed input into a plausible grade),
+  `check_mapping`, and `load_object`. All three CLIs share one failure
+  contract: **exit 1 and a single legible line on stderr, never a
+  traceback** — the skill reads that stderr, and a stack trace buries the
+  sentence saying what was wrong with the input.
 - `grasp.py` holds the claim/answer aggregation (`answer correctness =
   mean(claim correctness)`, `Gₑ = round(correctness × 5)`), the calibration
   gap/flag thresholds, and `CONFIDENCE_LABELS` — the

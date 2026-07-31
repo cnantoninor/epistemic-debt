@@ -28,7 +28,12 @@ from __future__ import annotations
 import json
 import sys
 
-from score import CASCADE, check_number  # co-located; cascade weights + input guard
+from score import (  # co-located; cascade weights + shared input guards
+    CASCADE,
+    check_mapping,
+    check_number,
+    load_object,
+)
 
 # Default learning rates (gap-points closed per engineer-week). Empirical
 # and team-specific in reality — these are policy defaults so the report
@@ -50,7 +55,10 @@ def compute_recovery(
     rates: dict[str, float] | None = None,
     delta: float | None = None,
 ) -> dict[str, object]:
-    rates = rates or {}
+    gaps = check_mapping(gaps, "'gaps'")
+    # `is not None`, not truthiness: an empty *list* is falsy, and letting it
+    # pass as "no rates given" would accept a wrong type in silence.
+    rates = check_mapping(rates, "'rates'") if rates is not None else {}
     per_layer: dict[str, dict[str, object]] = {}
     raw_tau: dict[str, float] = {}
     t_recovery = 0.0
@@ -107,7 +115,15 @@ def compute_recovery(
 
 
 def main() -> int:
-    raw = json.load(sys.stdin)
+    try:
+        return _run(sys.stdin)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+
+
+def _run(stream: object) -> int:
+    raw = load_object(stream)
     gaps = raw.get("gaps")
     # Distinguish a missing key (invalid) from an empty map (valid): Phase 4
     # always invokes this, and an empty `gaps` is legitimate when every

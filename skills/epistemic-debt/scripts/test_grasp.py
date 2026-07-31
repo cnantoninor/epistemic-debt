@@ -222,6 +222,19 @@ class CliTests(unittest.TestCase):
         self.assertIn("L1_implementation", payload)
         self.assertNotIn("notes", payload)
 
+    def test_cli_reports_malformed_stdin_without_a_stack_trace(self):
+        # Same contract as score.py: exit 1 and one legible line on stderr,
+        # never a traceback about .items() or float().
+        for stdin_text in ("[1, 2, 3]", "not json",
+                           '{"L1_implementation": {"confidence": 0.5, "claims": [1]}}',
+                           '{"L1_implementation": [{"confidence": true, "claims": [1]}]}',
+                           '{"L1_implementation": [{"claims": [1]}]}'):
+            with self.subTest(stdin_text=stdin_text):
+                proc = self._run(stdin_text)
+                self.assertEqual(proc.returncode, 1)
+                self.assertNotIn("Traceback", proc.stderr)
+                self.assertTrue(proc.stderr.strip())
+
 
 if __name__ == "__main__":
     unittest.main()

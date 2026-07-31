@@ -111,6 +111,30 @@ def check_number(
     return value
 
 
+def check_mapping(value: object, description: str) -> dict:
+    """Reject a JSON value that has to be an object but isn't.
+
+    Without this, a list or a bare string reaches `.items()` or `[...]` and
+    surfaces as an `AttributeError`/`TypeError` from somewhere deep in the
+    arithmetic — a stack trace about the internals instead of a sentence
+    about the input.
+    """
+    if not isinstance(value, dict):
+        raise ValueError(f"{description} must be a JSON object; got {value!r}.")
+    return value
+
+
+def load_object(stream: object, description: str = "Input") -> dict:
+    """Read a JSON object from `stream`, or raise `ValueError` explaining why
+    it isn't one. Shared by all three CLIs so malformed stdin fails the same
+    legible way everywhere."""
+    try:
+        raw = json.loads(stream.read())  # type: ignore[attr-defined]
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{description} is not valid JSON: {exc}.") from None
+    return check_mapping(raw, description)
+
+
 def layer_gap(complexity: int, grasp: int) -> int:
     """Gap = how far complexity outruns grasp.
 
@@ -153,6 +177,10 @@ def compute_grade(layers: dict[str, dict[str, int]]) -> dict[str, object]:
     credit_layers: list[str] = []
 
     for name, scores in layers.items():
+        scores = check_mapping(scores, f"Layer {name!r}")
+        missing = {"c", "g"} - scores.keys()
+        if missing:
+            raise ValueError(f"Layer {name!r} is missing {sorted(missing)}; got {scores!r}.")
         complexity = check_number(scores["c"], f"Complexity for {name!r}", minimum=0, maximum=SCALE_MAX)
         grasp = check_number(scores["g"], f"Grasp for {name!r}", minimum=0, maximum=SCALE_MAX)
         cascade = CASCADE[name]
@@ -192,12 +220,16 @@ def compute_grade(layers: dict[str, dict[str, int]]) -> dict[str, object]:
 
 
 def main() -> int:
-    raw = json.load(sys.stdin)
-    layers = {name: v for name, v in raw.items() if name in CASCADE}
-    if not layers:
-        print("No recognised layers in input.", file=sys.stderr)
+    try:
+        raw = load_object(sys.stdin)
+        layers = {name: v for name, v in raw.items() if name in CASCADE}
+        if not layers:
+            print("No recognised layers in input.", file=sys.stderr)
+            return 1
+        result = compute_grade(layers)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 1
-    result = compute_grade(layers)
     json.dump(result, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return 0
