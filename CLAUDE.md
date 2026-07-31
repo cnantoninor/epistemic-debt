@@ -125,6 +125,22 @@ though L1 has nothing beneath it to cascade into.
 (gap floored at 0). The report and grader both surface `credit_layers` — don't
 collapse this to "zero debt."
 
+**Interaction is tool-mediated, not prose.** Every question the skill puts to
+the user goes through `AskUserQuestion` (format choice, every Phase 2 probe and
+its confidence follow-up, the Phase 5 offer) — never a prose prompt awaiting a
+free-form reply. Phase progress is tracked with `TaskCreate`/`TaskUpdate`. Both
+rules are stated in `SKILL.md`'s "Interaction rules" section; the per-question
+mechanics (max 4 options, snippet labelling) live in
+`comprehension-probes.md`. **Each probe is immediately followed by its own
+confidence question in the same call, at most two probes per call**
+(`[L1-Q1, conf-Q1, L1-Q2, conf-Q2] → …`) — the tool's 4-question cap is what
+sets the pair size. Confidence reconstructed at the end of a layer is a worse
+measurement and the calibration gap depends on it, so don't "optimise" this
+into per-layer sweeps — sweeps also cost *more* calls, not fewer. The
+counter-pressure on packing two probes together is **leakage**: the
+respondent sees both before answering either, so probes sharing a call must
+come from different parts, else drop to one.
+
 ## Conventions specific to this repo
 
 - **Version bumps** must be applied in **both** `.claude-plugin/plugin.json` and

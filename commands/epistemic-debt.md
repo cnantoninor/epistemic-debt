@@ -18,3 +18,7 @@ repo path or PR ref, otherwise auto-detect — a non-`main` branch with a diff
 vs `origin/main` → PR mode, else whole repo), scan system complexity, **test**
 the respondent's grasp with grounded questions (not self-rating), grade with
 cascade discounting, and write the report.
+
+Track the phases with the task list (`TaskCreate` / `TaskUpdate`) so progress
+is visible, and put **every** question to the user through the
+`AskUserQuestion` tool — never as prose in chat.

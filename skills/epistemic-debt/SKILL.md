@@ -24,6 +24,55 @@ Open every run with this, before doing anything else:
 > The math & the cost: https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost
 > More writing: https://antoninorau.substack.com/
 
+## Interaction rules (mandatory — apply to every phase)
+
+**Every question put to the user MUST go through the `AskUserQuestion`
+tool.** Never pose a question as prose in chat and wait for a free-form
+reply — not for the `format` argument, not for probe questions, not for
+Phase 5's rates. Prose prompts produce unstructured, hard-to-grade replies
+and give the respondent no affordance; `AskUserQuestion` renders selectable
+options and returns a parseable answer. Chat prose is for *stating* results
+(scope, scores, the grade), never for *soliciting* input.
+
+Tool limits: **max 4 questions per call, max 4 options per question.** A
+free-text answer is still collected through `AskUserQuestion` — the
+respondent uses the automatically-provided "Other" field to type their
+answer; state that in the question text.
+
+**Every Phase 2 probe is immediately followed by its own confidence question
+in the same call.** Pack **at most two probes per `AskUserQuestion` call**,
+interleaved probe → confidence → probe → confidence (that is the tool's
+4-question limit, and the confidence questions are not optional filler):
+
+```
+[L1-Q1, conf-Q1, L1-Q2, conf-Q2] → [L1-Q3, conf-Q3, L1-Q4, conf-Q4] → [L1-Q5, conf-Q5]
+```
+
+Confidence is a judgment about a specific answer and it decays fast: swept up
+at the end of a layer, the respondent is reconstructing how sure they felt
+several questions ago, which is a worse measurement than the one taken with
+the answer in hand — and a separate sweep costs *more* round-trips, not
+fewer. Never defer confidence to the end of a layer or of Phase 2.
+
+**Drop to one probe in the call when the two would leak into each other** —
+if answering the second would reveal the first's answer, or the first's
+framing telegraphs the second (common when both probe the same function or
+the same request path). Leakage inflates Gₑ, which is the one error this
+whole skill exists to avoid; a saved round-trip is never worth it. Prefer
+pairs drawn from *different* parts of the layer.
+
+The confidence question can't quote the answer (you haven't seen it yet), so
+address it by label — "How confident are you in your answer to L1-Q2?"
+
+**Track the run with the task list.** Before Phase 0, create one task per
+phase with `TaskCreate` (Phase 0 resolve scope → Phase 1 scan complexity →
+Phase 2 test grasp → Phase 3 grade → Phase 4 report + remediate; add Phase 5
+only if the user opts in). Mark each `in_progress` with `TaskUpdate` when
+you start it and `completed` when it finishes, so the user can see which
+phase the run is in. For a multi-layer Phase 2, add one sub-task per probed
+layer — the probe is the longest stretch of the run and the user needs to
+see it advancing.
+
 ## Arguments
 
 Parse these from the invocation (all optional):
@@ -100,9 +149,10 @@ the answers. Full protocol in `references/comprehension-probes.md`; the
 essentials:
 
 - Pick the format from the `format` arg (`free-text` or `multiple-choice`).
-  If unset, ask the respondent, explaining the tradeoff: free-text is the
-  deeper, un-guessable signal but slower; multiple-choice is fast and
-  structured but guessable (recognition ≠ recall, so it over-states grasp).
+  If unset, ask the respondent **via `AskUserQuestion`**, explaining the
+  tradeoff in the option descriptions: free-text is the deeper, un-guessable
+  signal but slower; multiple-choice is fast and structured but guessable
+  (recognition ≠ recall, so it over-states grasp).
 - For each layer present, ask `questions-per-layer` questions. If not set
   explicitly, derive the count from the change-size depth table in
   `references/comprehension-probes.md` (whole-repo = max). Sample parts
@@ -116,6 +166,19 @@ essentials:
   decompose it into its distinct claims and score each 0.0–1.0; capture one
   overall confidence for the whole answer, as before. A correct rebuttal
   raises the affected claim.
+- **Pose every probe question through `AskUserQuestion`** — never as prose
+  in chat, **at most two probes per call**, each immediately followed by its
+  own confidence question (see the interaction rules above; drop to one probe
+  when the pair would leak). Code snippets and `file:line` citations go in the
+  chat message that precedes the call (options are too short to hold them);
+  each probe's question text then references its snippet by label.
+- **Confidence rides in the same call as the probe it rates** — options
+  Guessing / Somewhat / Confident / Certain (→ 0.1 / 0.4 / 0.7 / 0.95),
+  phrased against that probe's label. Never defer it to the end of a layer or
+  the end of Phase 2: the respondent is freshest about the answer they are
+  giving right now, a reconstructed confidence corrupts the calibration gap,
+  and a deferred sweep costs extra round-trips besides. Asked this way it also
+  lands before any grading is revealed, which is required.
 - Skip layers with no observable complexity rather than testing hollow
   ground. Feed every layer's answers (confidence + claims) to
   `scripts/grasp.py`, the same way Phase 3 feeds `score.py` — it returns
@@ -191,7 +254,8 @@ mistaken for the team's calibrated figures.
 ## Phase 5 — Quantitative deepening with real rates (optional, non-blocking)
 
 The report already carries a default-rate estimate (Phase 4), so this never
-blocks the useful output. Offer — but don't wait on — a re-run passing the
+blocks the useful output. Offer it **via `AskUserQuestion`** — but don't
+wait on it — a re-run passing the
 team's **own** learning rates and the AI-time-saved `δ` to the same
 `scripts/recovery.py` call (via its `rates` and `delta` input fields) for a
 calibrated `τₖ`/`T_recovery` and a real break-even verdict. Only compute it

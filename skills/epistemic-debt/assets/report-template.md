@@ -74,7 +74,8 @@ trigger if left unaddressed.}
 - **Limitations:** measures the respondent(s) above, not "the team"; at
   low depth (few questions/layer) a single question swings a layer's Gₑ; grading is
   LLM-judged (auditable via the cited references), done per claim for
-  articulated answers; confidence is self-reported, one value per answer.
+  articulated answers; confidence is self-reported, one value per answer,
+  asked in the same prompt as that answer and before any grading was shown.
 
 ## Recovery estimate (default rates)
 

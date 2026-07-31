@@ -52,6 +52,19 @@ graders:
       question, not as a substitute for one.
     weight: 2
 
+  - type: llm
+    name: probes-interleaved-with-confidence
+    focus: trace
+    criteria: >
+      In the first Phase 2 AskUserQuestion call, every comprehension probe is
+      immediately followed by a question rating confidence in that same
+      probe's answer (options along the lines of
+      Guessing / Somewhat / Confident / Certain), probe first. The call holds
+      at most two probes, so it is either [probe, confidence] or
+      [probe, confidence, probe, confidence] — never several probes bundled
+      together with their confidence questions deferred to a later call.
+    weight: 1
+
 expected_outcome: >
   Credit notice, whole-repo scope resolution, complexity scan, then grounded
   Phase 2 probes; the run pauses awaiting the respondent's answers.
