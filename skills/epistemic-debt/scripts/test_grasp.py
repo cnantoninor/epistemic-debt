@@ -54,6 +54,14 @@ class ConfidenceValueTests(unittest.TestCase):
             with self.subTest(confidence=confidence), self.assertRaises(ValueError):
                 _confidence_value(confidence)
 
+    def test_rejects_boolean_confidence(self):
+        # `bool` subclasses `int`, so JSON `true` would otherwise be read as a
+        # confidence of 1.0 — the maximum — and silently skew the calibration
+        # gap instead of failing like a malformed input should.
+        for confidence in (True, False):
+            with self.subTest(confidence=confidence), self.assertRaises(ValueError):
+                _confidence_value(confidence)
+
 
 class CalibrationFlagTests(unittest.TestCase):
     # Hand-checked against the ±0.3 thresholds in comprehension-probes.md.
@@ -89,6 +97,21 @@ class ScoreAnswerTests(unittest.TestCase):
         for claim in (-0.1, 1.1, float("nan"), float("inf")):
             with self.subTest(claim=claim), self.assertRaises(ValueError):
                 score_answer({"confidence": 0.5, "claims": [claim]})
+
+    def test_boolean_claims_rejected(self):
+        # A tempting shorthand for multiple-choice (right/wrong), but `bool`
+        # subclasses `int`: `true` would be scored as full credit and `false`
+        # as zero, quietly turning a mistyped payload into a plausible Gₑ.
+        for claim in (True, False):
+            with self.subTest(claim=claim), self.assertRaises(ValueError):
+                score_answer({"confidence": 0.5, "claims": [claim]})
+
+    def test_quoted_claim_scores_accepted(self):
+        # Same tolerance as confidence: hand- or LLM-authored JSON quotes
+        # numbers often enough that "0.5" must keep working.
+        self.assertAlmostEqual(
+            score_answer({"confidence": 0.5, "claims": ["0.5", "1"]})["correctness"], 0.75
+        )
 
 
 class ScoreLayerTests(unittest.TestCase):

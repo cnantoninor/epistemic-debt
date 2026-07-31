@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from score import _band, compute_grade, layer_gap  # noqa: E402
+from score import SCALE_MAX, _band, check_number, compute_grade, layer_gap  # noqa: E402
 
 SCRIPT = Path(__file__).resolve().parent / "score.py"
 
@@ -28,6 +28,48 @@ class LayerGapTests(unittest.TestCase):
 
     def test_gap_floored_at_zero_when_grasp_exceeds_complexity(self):
         self.assertEqual(layer_gap(2, 4), 0)
+
+
+class CheckNumberTests(unittest.TestCase):
+    """The shared input guard grasp.py and recovery.py both import."""
+
+    def test_accepts_numbers_and_preserves_int(self):
+        self.assertEqual(check_number(3, "x"), 3)
+        self.assertIsInstance(check_number(3, "x"), int)
+        self.assertEqual(check_number(0.5, "x"), 0.5)
+
+    def test_rejects_booleans(self):
+        # The whole reason this helper exists: bool subclasses int, so a JSON
+        # `true` would otherwise pass every numeric check as a 1.
+        for value in (True, False):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                check_number(value, "x")
+
+    def test_rejects_non_numbers_and_non_finite(self):
+        for value in ("4", None, [], {}, float("nan"), float("inf")):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                check_number(value, "x")
+
+    def test_bounds_are_inclusive(self):
+        self.assertEqual(check_number(0, "x", minimum=0, maximum=5), 0)
+        self.assertEqual(check_number(5, "x", minimum=0, maximum=5), 5)
+        for value in (-0.1, 5.1):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                check_number(value, "x", minimum=0, maximum=5)
+
+
+class ComputeGradeInputTests(unittest.TestCase):
+    def test_rejects_boolean_scores(self):
+        for layer in ({"c": True, "g": 0}, {"c": 4, "g": False}):
+            with self.subTest(layer=layer), self.assertRaises(ValueError):
+                compute_grade({"L1_implementation": layer})
+
+    def test_rejects_scores_outside_the_zero_to_five_scale(self):
+        # Out-of-scale scores silently distort both indices — a c of 7 gives a
+        # gap of 7 against a denominator built from SCALE_MAX.
+        for layer in ({"c": SCALE_MAX + 1, "g": 0}, {"c": 4, "g": -1}):
+            with self.subTest(layer=layer), self.assertRaises(ValueError):
+                compute_grade({"L1_implementation": layer})
 
 
 class BandTests(unittest.TestCase):

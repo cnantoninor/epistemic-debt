@@ -124,7 +124,11 @@ this is why the calculations live in code, not prose: two runs of the same
 inputs must yield the same numbers.
 - `score.py` holds the canonical cascade multipliers **L1=1, L2=4, L3=10,
   L4=30**. `framework.md` documents the source's *ranges* (e.g. L4 30–70×)
-  but explicitly defers to the script's fixed values.
+  but explicitly defers to the script's fixed values. It also owns
+  `check_number`, the shared input guard the other two import — it rejects
+  JSON booleans explicitly, because `bool` subclasses `int` and a stray
+  `true` would otherwise score as a full-credit claim, a maximum confidence
+  or a one-point gap, turning malformed input into a plausible grade.
 - `grasp.py` holds the claim/answer aggregation (`answer correctness =
   mean(claim correctness)`, `Gₑ = round(correctness × 5)`), the calibration
   gap/flag thresholds, and `CONFIDENCE_LABELS` — the
@@ -133,8 +137,9 @@ inputs must yield the same numbers.
   `comprehension-probes.md` documents the protocol for *generating* the
   inputs; the script owns aggregating them.
 - `recovery.py` holds `DEFAULT_RATES`, `τₖ`, `T_recovery`, `Cₖ`, and the
-  break-even check, importing `CASCADE` from `score.py` rather than
-  duplicating it. `framework.md` documents the model; the script computes it.
+  break-even check, importing `CASCADE` and `check_number` from `score.py`
+  rather than duplicating them. `framework.md` documents the model; the
+  script computes it.
 
 If you change a multiplier, rate, or threshold, change it in the owning
 script and reconcile the corresponding note in its `references/` doc — never
@@ -191,6 +196,7 @@ also the only form the evals can observe.
   this plugin's own tree.
 - All three scripts target Python 3, stdlib only, `from __future__ import
   annotations`. Keep them dependency-free — they must run anywhere a target
-  repo lives. `recovery.py` imports `CASCADE` from `score.py` (co-located, no
-  package/install needed); don't introduce any other cross-script or
-  third-party dependency.
+  repo lives. `score.py` is the base module: `grasp.py` and `recovery.py`
+  both import from it (co-located, no package/install needed) and nothing
+  imports back. Adding a symbol to that existing edge is fine; a new edge
+  between scripts, or any third-party dependency, is not.

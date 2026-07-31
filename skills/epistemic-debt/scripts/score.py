@@ -23,6 +23,7 @@ layers are simply excluded from the weighting.
 from __future__ import annotations
 
 import json
+import math
 import sys
 
 # Cascade cost multipliers (rework triggered by a gap at this layer).
@@ -78,6 +79,38 @@ FLOOR_WEIGHT = {
 }
 
 
+def check_number(
+    value: object,
+    description: str,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float:
+    """Reject anything JSON can supply that is not a real, finite, in-range
+    number. Shared by all three scripts — a malformed input must fail loudly
+    rather than produce a plausible-looking grade.
+
+    `bool` is excluded explicitly because it subclasses `int`, so JSON `true`
+    would otherwise sail through as a 1: a full-credit claim, a maximum
+    confidence, or a gap of one whole scale point. Strings are excluded
+    because `math.isfinite` raises `TypeError` on them rather than producing
+    a legible validation error.
+
+    Returns the value unchanged (not coerced to `float`) so integer inputs
+    stay integers in the JSON output.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{description} must be a finite number; got {value!r}.")
+    if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
+        bound = (
+            f"from {minimum} to {maximum}" if minimum is not None and maximum is not None
+            else f">= {minimum}" if minimum is not None
+            else f"<= {maximum}"
+        )
+        raise ValueError(f"{description} must be a finite number {bound}; got {value!r}.")
+    return value
+
+
 def layer_gap(complexity: int, grasp: int) -> int:
     """Gap = how far complexity outruns grasp.
 
@@ -120,7 +153,8 @@ def compute_grade(layers: dict[str, dict[str, int]]) -> dict[str, object]:
     credit_layers: list[str] = []
 
     for name, scores in layers.items():
-        complexity, grasp = scores["c"], scores["g"]
+        complexity = check_number(scores["c"], f"Complexity for {name!r}", minimum=0, maximum=SCALE_MAX)
+        grasp = check_number(scores["g"], f"Grasp for {name!r}", minimum=0, maximum=SCALE_MAX)
         cascade = CASCADE[name]
         gap = layer_gap(complexity, grasp)
         per_layer[name] = {"gap": gap, "weighted": cascade * gap}

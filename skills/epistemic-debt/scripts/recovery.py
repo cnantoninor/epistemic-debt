@@ -26,10 +26,9 @@ verdict; without it the verdict is left null pending that input.
 from __future__ import annotations
 
 import json
-import math
 import sys
 
-from score import CASCADE  # co-located; reuse the canonical cascade weights
+from score import CASCADE, check_number  # co-located; cascade weights + input guard
 
 # Default learning rates (gap-points closed per engineer-week). Empirical
 # and team-specific in reality — these are policy defaults so the report
@@ -46,19 +45,6 @@ DEFAULT_RATES = {
 LAYER_ORDER = ["L1_implementation", "L2_design", "L3_architecture", "L4_requirements"]
 
 
-def _check_number(value: object, description: str) -> float:
-    """Reject anything JSON can supply that is not a real, finite number.
-
-    `bool` is excluded explicitly because it subclasses `int`, so JSON
-    `true` would otherwise sail through as a gap/delta of 1; strings are
-    excluded because `math.isfinite` raises `TypeError` on them rather
-    than producing a legible validation error.
-    """
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-        raise ValueError(f"{description} must be a finite number; got {value!r}.")
-    return value
-
-
 def compute_recovery(
     gaps: dict[str, float],
     rates: dict[str, float] | None = None,
@@ -73,11 +59,9 @@ def compute_recovery(
     for name, gap in gaps.items():
         if name not in CASCADE:
             raise ValueError(f"Unknown layer {name!r}.")
-        gap = _check_number(gap, f"Gap for {name!r}")
-        if gap < 0:
-            raise ValueError(f"Gap for {name!r} must be a finite number >= 0; got {gap!r}.")
+        gap = check_number(gap, f"Gap for {name!r}", minimum=0)
         using_default = name not in rates
-        rate = _check_number(rates.get(name, DEFAULT_RATES[name]), f"Rate for {name!r}")
+        rate = check_number(rates.get(name, DEFAULT_RATES[name]), f"Rate for {name!r}")
         if rate <= 0:
             raise ValueError(f"Rate for {name!r} must be a finite number > 0; got {rate!r}.")
         tau = gap / rate
@@ -107,7 +91,7 @@ def compute_recovery(
         # Same guard as gaps and rates: an unvalidated NaN here would make
         # `weighted_cost > delta` false and report "break-even not exceeded"
         # for an input that never had a verdict to give.
-        delta = _check_number(delta, "delta")
+        delta = check_number(delta, "delta")
         net_benefit = round(delta - weighted_cost, 3)
         breakeven_exceeded = weighted_cost > delta
 

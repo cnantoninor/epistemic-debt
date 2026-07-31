@@ -29,10 +29,9 @@ top-level keys are ignored (mirrors `score.py`). Feed the resulting `g`
 from __future__ import annotations
 
 import json
-import math
 import sys
 
-from score import CASCADE  # co-located; reuse the canonical layer names
+from score import CASCADE, check_number  # co-located; canonical names + input guard
 
 # Confidence label → number, for respondents who answer in words rather
 # than a 0-1 figure. Matches the mapping in comprehension-probes.md.
@@ -52,6 +51,24 @@ OVERCONFIDENT_THRESHOLD = 0.3
 UNDERCONFIDENT_THRESHOLD = -0.3
 
 
+def _score_value(value: object, description: str) -> float:
+    """Resolve a 0-1 score input to a float, tolerating a quoted number.
+
+    Hand- or LLM-authored JSON quotes numbers often enough to be worth
+    accepting ("0.5"), but everything else goes through `check_number`, which
+    rejects JSON booleans — `true` is never a score, yet `bool` subclasses
+    `int`, so it would otherwise land as full credit or maximum confidence.
+    """
+    if isinstance(value, str):
+        try:
+            value = float(value.strip())
+        except ValueError:
+            raise ValueError(
+                f"{description} must be a number from 0 to 1; got {value!r}."
+            ) from None
+    return check_number(value, description, minimum=0, maximum=1)
+
+
 def _confidence_value(confidence: float | str) -> float:
     """Resolve a confidence input to a 0-1 float, accepting labels or a
     numeric string (JSON authored by hand or by an LLM may quote either)."""
@@ -59,18 +76,20 @@ def _confidence_value(confidence: float | str) -> float:
         label = confidence.strip().lower()
         if label in CONFIDENCE_LABELS:
             return CONFIDENCE_LABELS[label]
-        try:
-            value = float(label)
-        except ValueError:
+        if not _looks_numeric(label):
             raise ValueError(
                 f"Unknown confidence label {confidence!r}; "
                 f"expected one of {sorted(CONFIDENCE_LABELS)} or a 0-1 number."
-            ) from None
-    else:
-        value = float(confidence)
-    if not math.isfinite(value) or not 0 <= value <= 1:
-        raise ValueError(f"Confidence must be a finite number from 0 to 1; got {confidence!r}.")
-    return value
+            )
+    return _score_value(confidence, "Confidence")
+
+
+def _looks_numeric(text: str) -> bool:
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
 
 
 def _mean(values: list[float]) -> float:
@@ -98,11 +117,11 @@ def score_answer(answer: dict[str, object]) -> dict[str, float]:
         raise ValueError(f"Answer is missing {sorted(missing)}; got {answer!r}.")
     if not isinstance(answer["claims"], list):
         raise ValueError(f"Answer 'claims' must be a list of 0-1 scores; got {answer['claims']!r}.")
-    claims = [float(c) for c in answer["claims"]]  # type: ignore[arg-type]
-    if not claims:
+    if not answer["claims"]:
         raise ValueError("Answer has no claims to grade.")
-    if any(not math.isfinite(claim) or not 0 <= claim <= 1 for claim in claims):
-        raise ValueError(f"Claim scores must be finite numbers from 0 to 1; got {claims!r}.")
+    claims = [
+        float(_score_value(c, "Claim score")) for c in answer["claims"]  # type: ignore[union-attr]
+    ]
     return {
         "confidence": _confidence_value(answer["confidence"]),  # type: ignore[arg-type]
         "correctness": _mean(claims),
