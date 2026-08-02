@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 *:Zone.Identifier
 evals/results/
+.venv/
+.ruff_cache/

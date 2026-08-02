@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  smoke-test:
-    name: score.py smoke test (Python ${{ matrix.python-version }})
+  test:
+    name: Unit tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -18,23 +18,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Run score.py against example input
-        run: |
-          echo '{"L4_requirements":{"c":4,"g":2},"L3_architecture":{"c":3,"g":3},"L2_design":{"c":2,"g":3},"L1_implementation":{"c":4,"g":4}}' \
-            | python3 skills/epistemic-debt/scripts/score.py
+      - run: make test-unit
 
   lint:
-    name: Lint score.py (ruff)
+    name: Lint (ruff)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install ruff
-        run: pip install ruff
-      - name: Run ruff
-        run: ruff check skills/epistemic-debt/scripts/score.py
+      - run: make lint
 
   validate-manifests:
     name: Validate plugin manifests
@@ -44,31 +38,4 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Check JSON validity and version sync
-        run: |
-          python3 - <<'PY'
-          import json, sys
-
-          with open(".claude-plugin/plugin.json") as f:
-              plugin = json.load(f)
-          with open(".claude-plugin/marketplace.json") as f:
-              marketplace = json.load(f)
-
-          plugin_version = plugin["version"]
-          marketplace_version = marketplace["metadata"]["version"]
-          entry = next(p for p in marketplace["plugins"] if p["name"] == plugin["name"])
-          entry_version = entry["version"]
-
-          versions = {
-              "plugin.json:version": plugin_version,
-              "marketplace.json:metadata.version": marketplace_version,
-              "marketplace.json:plugins[].version": entry_version,
-          }
-
-          mismatched = {k: v for k, v in versions.items() if v != plugin_version}
-          if mismatched:
-              print(f"Version mismatch across manifests: {versions}", file=sys.stderr)
-              sys.exit(1)
-
-          print(f"Manifests OK: {versions}")
-          PY
+      - run: make validate-manifests

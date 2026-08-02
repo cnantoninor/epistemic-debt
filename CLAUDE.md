@@ -16,6 +16,14 @@ computed once, deterministically, instead of re-derived in prose on each run.
 ## Repository map
 
 ```
+.github/workflows/ci.yml   # Runs `make test-unit` (matrix), `make lint`, `make validate-manifests`
+Makefile                   # venv/lint/test/check targets shared by CI and the pre-push hook
+pyproject.toml             # [tool.ruff] config only — this repo is still not a packaged project
+requirements.txt           # Prod deps for the scripts — intentionally empty (stdlib-only)
+requirements-dev.txt        # Dev deps (pinned ruff) for `make venv`
+scripts/                   # Repo dev tooling, NOT the plugin's runtime scripts (see below)
+  check_manifests.py        # `make validate-manifests`
+  git-hooks/pre-push        # Installed by `make install-hooks`
 .claude-plugin/
   plugin.json              # Plugin manifest (name, version, author) — bump version here
   marketplace.json         # Marketplace listing; version must match plugin.json
@@ -75,8 +83,26 @@ stdin/stdout contract via `subprocess`. Run the whole suite:
 python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"
 ```
 
-There is still no linter or CI configured. Add tests alongside any change to
-a script's math; don't rely on ad-hoc manual runs to validate a formula.
+**Dev tooling.** A `Makefile` wraps the venv, lint, and unit-test workflow so
+local dev, the pre-push hook, and `.github/workflows/ci.yml` all run the same
+commands instead of duplicating them:
+
+```bash
+make venv              # create .venv, install requirements-dev.txt
+make lint               # ruff check over skills/epistemic-debt/scripts/
+make test-unit           # the unittest suite above
+make validate-manifests  # plugin.json/marketplace.json version-sync check
+make check                # lint + test-unit + validate-manifests (what CI and pre-push run)
+make install-hooks         # installs a pre-push hook that runs `make check` and blocks the push on failure
+```
+
+Ruff's rule selection is pinned explicitly in `pyproject.toml` (not left to
+ruff's implicit config-less default) — see the comments there for why
+specific rules are excluded. `requirements.txt` is deliberately empty (the
+scripts are stdlib-only); `requirements-dev.txt` adds `ruff`, pinned, so a
+ruff release can't silently change what CI flags. Add tests alongside any
+change to a script's math; don't rely on ad-hoc manual runs to validate a
+formula.
 
 **Eval suite.** The behavior that lives in markdown — scope resolution, the
 credit notice, grounded (never self-rated) probes, routing every number
