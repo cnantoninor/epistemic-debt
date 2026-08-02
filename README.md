@@ -55,8 +55,12 @@ grounded questions about *your* code, e.g.:
 > *"If the gateway times out but the charge actually succeeded, what stops the
 > retry from double-charging the customer?"*
 
-You answer in your own words; it grades against the real code and records how
-confident you felt vs. how right you were.
+Questions arrive as structured prompts, at most two at a time, and **each one
+is immediately followed by "how confident are you in that answer?"** — rated
+while the answer is still in your head, never reconstructed at the end. In
+free-text mode you type your answer into the prompt's *Other* field. It then
+grades against the real code and records how confident you felt vs. how right
+you were.
 
 **5. It grades and writes a report.** Cascade-weighted, saved to
 `epistemic-debt/2026-07-18-pr-payment-retries.md`.
@@ -108,7 +112,10 @@ Then, in any repo:
 
 - **Auto-scope:** a non-`main` branch with changes → measures the **PR diff**
   vs `origin/main`; otherwise the **whole repo**.
-- `format=free-text` (deeper signal) or `format=multiple-choice` (faster).
+- `format=free-text` (deeper signal — you write the answer, so it can't be
+  guessed) or `format=multiple-choice` (faster, but recognition ≠ recall, so
+  it over-states grasp; the prompt caps a question at 4 options, leaving
+  3 distractors).
 - `questions-per-layer=N` — by default it **scales with change size**
   (1 for a tiny PR up to 5 for a whole-repo audit).
 

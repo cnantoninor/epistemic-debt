@@ -36,7 +36,9 @@ that actually justify each layer's complexity score.}
 
 {Per layer: the question(s) asked and which part they probed, the
 respondent's answer, the score (0-1), and the resulting 0-5 Gₑ. Cite the
-`file:line` reference answers used to grade, so each verdict is auditable.}
+`file:line` reference answers used to grade, so each verdict is auditable.
+For articulated answers, grading is per claim — the answer score is the mean
+of its claims' correctness; note any claims that pulled the score down.}
 
 ## Calibration (confidence vs tested grasp)
 
@@ -71,14 +73,31 @@ trigger if left unaddressed.}
   reasoning a glance can't answer.
 - **Limitations:** measures the respondent(s) above, not "the team"; at
   low depth (few questions/layer) a single question swings a layer's Gₑ; grading is
-  LLM-judged (auditable via the cited references); confidence is
-  self-reported.
+  LLM-judged (auditable via the cited references), done per claim for
+  articulated answers; confidence is self-reported, one value per answer,
+  asked in the same prompt as that answer and before any grading was shown.
 
-## Optional: quantitative deepening
+## Recovery estimate (default rates)
 
-{Only if requested — τₖ, T_recovery, and the AI break-even condition
-Σ cₖ·τₖ vs δ. Otherwise: "Not computed — run with quantitative mode for
-recovery-time and break-even estimates."}
+`τₖ = gapₖ / rₖ` using the default learning rates (L1=2.0, L2=1.0, L3=0.5,
+L4=0.33 gap-points/eng-week — see `references/framework.md`).
+**ESTIMATE from default rates**, not the team's measured rates.
+
+| Layer | Gap | Default rₖ | τₖ (eng-weeks) |
+|-------|-----|-----------|----------------|
+| L4 Requirements  | {gap} | 0.33 | {τ} |
+| L3 Architecture  | {gap} | 0.5  | {τ} |
+| L2 Design        | {gap} | 1.0  | {τ} |
+| L1 Implementation| {gap} | 2.0  | {τ} |
+
+- **Total recovery (T_recovery = Σ τₖ):** {weeks} engineer-weeks (estimate)
+- **AI break-even:** AI-assisted work is a net loss when Σ cₖ·τₖ > δ
+  (δ = dev time AI saved). Cascade-weighted cost Σ cₖ·τₖ = {value}; δ is
+  unknown until the team provides it.
+
+*This is a default-rate estimate. Re-run the quantitative deepening
+(Phase 5) with your team's own learning rates and δ to replace it with a
+calibrated recovery time and a real break-even verdict.*
 
 ---
 

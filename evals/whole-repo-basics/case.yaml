@@ -1,0 +1,86 @@
+schema_version: "1.0"
+name: whole-repo-basics
+description: >
+  Whole-repo mode on a tiny scaffolded repo: the run must show the Antonino Rau
+  credit notice before Phase 0, resolve scope as whole-repo (main branch, no
+  diff), scan complexity, and open Phase 2 with grounded probe questions about
+  the actual code — never a self-rating. Headless runs end when Phase 2 waits
+  for answers; graders only score Phases 0–2.
+tags: [smoke, whole-repo, phase0, phase2]
+
+context:
+  # Minimal target repo on `main` so Phase 0 resolves to whole-repo mode.
+  # The cache module carries a subtle invariant (eviction order vs TTL) so
+  # Phase 2 has something concrete to probe. scaffold_script is a path
+  # (relative to this case dir) the runner executes with `bash`.
+  scaffold_script: scaffold.sh
+
+execution:
+  prompt: "Run an epistemic debt assessment of this repository."
+  max_turns: 25
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Glob, Grep, Write]
+
+runs: 2
+
+graders:
+  - type: regex
+    name: credit-notice
+    target: trace
+    pattern: "Antonino Rau"
+    match: contains
+    weight: 1
+
+  - type: llm
+    name: whole-repo-scope
+    focus: trace
+    criteria: >
+      The assistant resolved the assessment scope as the whole repository
+      (not PR/diff mode). It did not claim to be measuring the marginal debt
+      of a change or diff.
+    weight: 1
+
+  - type: llm
+    name: grounded-probes-not-self-rating
+    focus: trace
+    criteria: >
+      In Phase 2 the assistant asked comprehension probe questions grounded in
+      the actual scanned code (e.g. referencing TTLCache, its eviction order,
+      TTL/expiry behavior, or the injectable clock). It never asked the
+      respondent to self-rate their own understanding on a numeric scale;
+      confidence, if requested, was asked per answer alongside a substantive
+      question, not as a substitute for one.
+    weight: 2
+
+  # NOTE: this grades the *structure*, not an AskUserQuestion call. That tool
+  # is interactive-only and is simply absent from headless eval sessions (see
+  # the session tool list in any trace) — it is not gated, so no
+  # --allow-tools grant can produce it. The skill's documented fallback is
+  # prose carrying the same batching, labels and pairing, which is what a
+  # headless run will emit and what this grader scores.
+  - type: llm
+    name: probes-interleaved-with-confidence
+    focus: trace
+    criteria: >
+      When Phase 2 first puts questions to the respondent, every comprehension
+      probe is immediately followed by a request to rate confidence in that
+      same probe's answer (options along the lines of
+      Guessing / Somewhat / Confident / Certain), probe first, referring to
+      the probe by its label. At most two probes are put to the respondent
+      before the run pauses for answers, so the batch is either
+      [probe, confidence] or [probe, confidence, probe, confidence] — never
+      several probes bundled together with their confidence questions
+      deferred until after the answers come back.
+    weight: 1
+
+  # Phase tracking is gradable headlessly: TaskCreate/TaskUpdate *are* in the
+  # eval session's tool list.
+  - type: tool_used
+    name: phases-tracked-in-task-list
+    tool: TaskCreate
+    min: 1
+    weight: 1
+
+expected_outcome: >
+  Credit notice, whole-repo scope resolution, complexity scan, then grounded
+  Phase 2 probes; the run pauses awaiting the respondent's answers.

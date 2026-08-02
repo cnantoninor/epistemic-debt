@@ -1,0 +1,85 @@
+schema_version: "1.0"
+name: scripted-math
+description: >
+  Single-source-of-truth check: when probe answers are supplied up front, the
+  run must complete end-to-end and route every calculation through the plugin
+  scripts — grasp.py for Gₑ, score.py for the grade, recovery.py for the
+  default recovery estimate — instead of re-deriving the math in prose, and
+  must write the report with the attribution footer.
+tags: [math, scripts, phase3, phase4, report]
+
+context:
+  # scaffold_script is a path (relative to this case dir) the runner executes
+  # with `bash` inside the temp scaffold dir.
+  scaffold_script: scaffold.sh
+
+execution:
+  prompt: |
+    Run an epistemic debt assessment of this repository. The team already
+    answered the comprehension probes in an earlier session — do not re-ask
+    them. Use these probe results as the Phase 2 input:
+
+    {"L4_requirements": [{"confidence": 0.9, "claims": [1.0, 0.5]}],
+     "L3_architecture": [{"confidence": 0.8, "claims": [0.5, 0.5]}],
+     "L2_design": [{"confidence": 0.5, "claims": [1.0, 1.0]}],
+     "L1_implementation": [{"confidence": 0.9, "claims": [0.0, 0.5]}]}
+
+    Use default rates for the recovery estimate and write the report.
+  max_turns: 40
+  timeout_seconds: 1200
+  allowed_tools: [Bash, Read, Glob, Grep, Write]
+
+runs: 2
+
+graders:
+  - type: tool_used
+    name: grasp-via-script
+    tool: Bash
+    input_match: "grasp\\.py"
+    min: 1
+    weight: 1
+
+  - type: tool_used
+    name: grade-via-script
+    tool: Bash
+    input_match: "score\\.py"
+    min: 1
+    weight: 1
+
+  - type: tool_used
+    name: recovery-via-script
+    tool: Bash
+    input_match: "recovery\\.py"
+    min: 1
+    weight: 1
+
+  - type: tool_order
+    name: grasp-before-grade
+    before: { tool: Bash, input_match: "grasp\\.py" }
+    after: { tool: Bash, input_match: "score\\.py" }
+    weight: 1
+
+  - type: regex
+    name: report-has-attribution-footer
+    target: files
+    pattern: "antoninorau\\.substack\\.com"
+    match: contains
+    weight: 1
+
+  - type: llm
+    name: numbers-come-from-scripts
+    focus: trace
+    criteria: >
+      The debt index, grade, Gₑ values, calibration gaps, and recovery estimate
+      reported in the final output all originate from script outputs visible in
+      the trace (grasp.py, score.py, recovery.py) — the assistant did not
+      derive different numbers by hand in prose, and any credit layers
+      (grasp exceeding complexity) are surfaced as credit rather than
+      collapsed to "zero debt".
+    weight: 2
+
+expected_outcome: >
+  Full Phase 0–4 run with no user interaction: provided probe answers are fed
+  to grasp.py, the grade comes from score.py, the default-rate recovery
+  estimate from recovery.py, and a report file with the credit footer is
+  written under epistemic-debt/.

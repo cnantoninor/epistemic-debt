@@ -4,8 +4,9 @@ Source: Antonino Rau, "Epistemic Debt: The Math, The Cost"
 <https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost>
 
 Load this file when you need the exact definitions, the cost math, or the
-remediation mechanisms. The SKILL runs qualitatively by default; the
-quantitative section here is the optional escalation.
+remediation mechanisms. The SKILL's grade is qualitative; the quantitative
+section here powers both the report's always-on default-rate recovery
+estimate and the optional deep re-run with the team's own rates.
 
 ## Core idea
 
@@ -77,23 +78,46 @@ without the script, use those exact numbers so results stay reproducible.
 calls it "undocumented." It can only be elicited by asking the team.
 This is why the SKILL uses questions for grasp and scanning for complexity.
 
-## Quantitative escalation (optional)
+## Quantitative escalation
 
-Only compute this when the user asks for numbers or a break-even.
+The report always carries a **default-rate estimate** (Phase 4); a full
+computation with the team's **own** measured rates is the optional
+deepening (Phase 5).
 
 **Recovery time per layer** — time to close the gap once you decide to:
 
 ```
-τₖ = (Cₛ,ₖ(t₀) − Gₑ,ₖ(t₀)) / rₖ
+gapₖ = max(0, Cₛ,ₖ(t₀) − Gₑ,ₖ(t₀))
+τₖ = gapₖ / rₖ
 ```
 
 - `t₀` — the moment the team recognises and starts closing the gap.
   Earlier `t₀` = narrower gap = cheaper recovery.
 - `rₖ` — learning rate at layer k (empirical; ask the team).
+- Surplus grasp is epistemic credit, not negative recovery time, so `gapₖ`
+  is floored at zero exactly as it is in `scripts/score.py`.
+
+**Default learning rates (for the always-on estimate).** Real `rₖ` are
+empirical and team-specific, but the report includes a recovery estimate so
+it never depends on a follow-up. Use these defaults unless the user supplies
+their own — rates in **gap-points closed per engineer-week**; higher layers
+learn slower because they need alignment, not just reading:
+
+| Layer | Default `rₖ` (pts/eng-week) | Rationale |
+|-------|-----------------------------|-----------|
+| L1 Implementation | 2.0  | Read the code, run it |
+| L2 Design         | 1.0  | Internalise why components are shaped so |
+| L3 Architecture   | 0.5  | Build the system model, trace flows |
+| L4 Requirements   | 0.33 | Needs stakeholder alignment, not just study |
+
+So `τₖ = gapₖ / rₖ` yields engineer-weeks. These are **policy defaults** —
+always label output computed from them as an ESTIMATE and print the rates
+used. Phase 5 replaces them with the team's measured rates.
 
 **Total recovery:** `T_recovery = Σₖ τₖ`
 
 **Effective (cascade-inclusive) cost at layer k:** `Cₖ = Σⱼ₌₁ᵏ τⱼ`
+(cumulative through layer k, in L1→L4 order).
 
 **AI break-even** — AI-assisted development is net-negative when the
 cascade-weighted recovery cost exceeds the time AI saved:
@@ -102,6 +126,13 @@ cascade-weighted recovery cost exceeds the time AI saved:
 Net Benefit = δ − Σₖ cₖ · τₖ         (δ = dev time saved by AI generation)
 AI is a net loss when:  Σₖ cₖ · τₖ > δ
 ```
+
+**Canonical computation:** `scripts/recovery.py` is authoritative for all
+of the above — given per-layer gaps (from `score.py`), it applies
+`DEFAULT_RATES` (or supplied real rates), and returns `τₖ`, `T_recovery`,
+`Cₖ`, and the break-even verdict once `δ` is supplied. Phases 4 and 5 both
+call it; see `SKILL.md`. If you ever compute without the script, use these
+exact definitions so results stay reproducible.
 
 ## Remediation — shifting t₀ leftward
 
