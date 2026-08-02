@@ -84,7 +84,7 @@ collapse this to "zero debt."
 ## Conventions specific to this repo
 
 - **Version bumps** must be applied in **both** `.claude-plugin/plugin.json` and
-  `.claude-plugin/marketplace.json` (they currently mirror each other at `2.0.0`).
+  `.claude-plugin/marketplace.json` (they currently mirror each other at `1.1.0`).
 - **Attribution is required.** Every run shows the credit notice for Antonino Rau
   before Phase 0, and the report template ends with the credit footer. Preserve the
   Substack links (`plugin.json` homepage, README, SKILL.md credit block, template

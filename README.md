@@ -39,7 +39,7 @@ the diff is clean, everyone approves. Here's what a run looks like:
 **1. You ask.** On the PR branch:
 
 ```
-/epistemic-debt
+/epistemic:debt
 ```
 
 **2. It resolves scope.** Detects a non-`main` branch with a diff → **PR mode**,
