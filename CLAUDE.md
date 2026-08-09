@@ -84,7 +84,8 @@ a script's math; don't rely on ad-hoc manual runs to validate a formula.
 **Eval suite.** The behavior that lives in markdown — scope resolution, the
 credit notice, grounded (never self-rated) probes, routing every number
 through the scripts, phase tracking — is scored by `claude plugin eval`
-cases under `evals/`, one directory per case. From the repo root:
+cases under `evals/`, one directory per case (gated in early access; see
+`evals/README.md`). From the repo root:
 
 ```bash
 claude plugin eval . --scaffold --allow-tools Bash Write
