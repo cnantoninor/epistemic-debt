@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A **Claude Code plugin** (`epistemic-debt`) that grades a repository — or a single
+A **Claude Code plugin** (`epistemic`) that grades a repository — or a single
 PR diff — for *epistemic debt*: the gap between system complexity (`Cₛ`, scanned
 from the repo) and team comprehension (`Gₑ`, tested directly, not self-rated). It
 implements Antonino Rau's [Epistemic Debt framework](https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost). This is **not** a Python
@@ -30,8 +30,8 @@ scripts/                   # Repo dev tooling, NOT the plugin's runtime scripts 
   plugin.json              # Plugin manifest (name, version, author) — bump version here
   marketplace.json         # Marketplace listing; version must match plugin.json
 commands/
-  epistemic-debt.md        # /epistemic-debt slash command → delegates to the skill
-skills/epistemic-debt/
+  debt.md                  # /epistemic:debt slash command → delegates to the skill
+skills/debt/
   SKILL.md                 # THE spec: the 6-phase (Phase 0–5) workflow Claude executes
   references/framework.md          # Definitions, cascade math, break-even model (load on demand)
   references/comprehension-probes.md  # Phase 2 protocol: how to test grasp, depth table, scoring
@@ -60,17 +60,17 @@ eval suite in `evals/`:
 ```bash
 # score.py — cascade-weighted grade from per-layer complexity/grasp:
 echo '{"L4_requirements":{"c":4,"g":2},"L3_architecture":{"c":3,"g":3},"L2_design":{"c":2,"g":3},"L1_implementation":{"c":4,"g":4}}' \
-  | python3 skills/epistemic-debt/scripts/score.py
+  | python3 skills/debt/scripts/score.py
 
 # grasp.py — Gₑ + calibration gap from per-claim probe answers:
 echo '{"L1_implementation":[{"confidence":0.7,"claims":[1.0,0.5]}]}' \
-  | python3 skills/epistemic-debt/scripts/grasp.py
+  | python3 skills/debt/scripts/grasp.py
 
 # recovery.py — recovery time + break-even from per-layer gaps (imports
 # CASCADE from score.py — Python puts a script's own directory on sys.path,
 # so this resolves regardless of invocation cwd, same as the other two):
 echo '{"gaps":{"L4_requirements":2,"L1_implementation":3}}' \
-  | python3 skills/epistemic-debt/scripts/recovery.py
+  | python3 skills/debt/scripts/recovery.py
 ```
 
 Any layer may be omitted (PR mode often has no L4 signal); omitted layers are
@@ -85,7 +85,7 @@ a formula, don't just accept whatever the code now returns) and its CLI
 stdin/stdout contract via `subprocess`. Run the whole suite:
 
 ```bash
-python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"
+python3 -m unittest discover -s skills/debt/scripts -p "test_*.py"
 ```
 
 `.github/workflows/ci.yml` runs this suite on every PR and on pushes to
@@ -99,7 +99,7 @@ commands instead of duplicating them:
 
 ```bash
 make venv              # create .venv, install requirements-dev.txt
-make lint               # ruff check over skills/epistemic-debt/scripts/
+make lint               # ruff check over skills/debt/scripts/
 make test-unit           # the unittest suite above
 make validate-manifests  # plugin.json/marketplace.json version-sync check
 make check                # lint + test-unit + validate-manifests (what CI and pre-push run)
@@ -144,7 +144,7 @@ grasp is *tested* with grounded questions about the actual code — never a
 self-rating (a self-rating measures confidence, not comprehension). This split is
 the core thesis; preserve it in any edit to `SKILL.md` or the probes reference.
 
-**Runtime flow.** `/epistemic-debt` (or a natural-language ask) → the skill runs
+**Runtime flow.** `/epistemic:debt` (or a natural-language ask) → the skill runs
 Phase 0 resolve scope → Phase 1 scan complexity → Phase 2 test grasp via
 `grasp.py` → Phase 3 grade via `score.py` → Phase 4 write report + explain
 (always runs, includes a default-rate recovery estimate via `recovery.py`) →
@@ -237,13 +237,13 @@ also the only form the evals can observe.
 - **Attribution is required.** Every run shows the credit notice for Antonino Rau
   before Phase 0, and the report template ends with the credit footer. The ⚠️
   "estimate, not a fact" disclaimer is **part of the mandatory credit block** —
-  in both `SKILL.md` and `commands/epistemic-debt.md` — and must never be
+  in both `SKILL.md` and `commands/debt.md` — and must never be
   dropped from it: a tool about miscalibrated confidence carries its own
   calibration caveat where the user of the tool sees it. Preserve the
   Substack links (`plugin.json` homepage, README, SKILL.md credit block, template
   footer) when editing.
 - **Invoke every script by absolute path** from the skill —
-  `"${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/{score,grasp,recovery}.py"`
+  `"${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/{score,grasp,recovery}.py"`
   — never rely on the shell's working directory (the skill runs against
   arbitrary target repos).
 - Reports are written by the *target* repo's run to

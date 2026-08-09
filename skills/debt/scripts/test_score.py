@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Unit tests for score.py — run with:
-    python3 skills/epistemic-debt/scripts/test_score.py
+    python3 skills/debt/scripts/test_score.py
 or:
-    python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"
+    python3 -m unittest discover -s skills/debt/scripts -p "test_*.py"
 """
 from __future__ import annotations
 

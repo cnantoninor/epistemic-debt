@@ -11,7 +11,7 @@ Each test module inserts its own directory on `sys.path` before importing
 this (the same pattern used for the `score`/`grasp`/`recovery` imports), so
 it resolves under both invocation styles: direct
 (`python3 test_score.py`) and discovery
-(`python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"`).
+(`python3 -m unittest discover -s skills/debt/scripts -p "test_*.py"`).
 """
 from __future__ import annotations
 

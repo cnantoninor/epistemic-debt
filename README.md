@@ -39,7 +39,7 @@ the diff is clean, everyone approves. Here's what a run looks like:
 **1. You ask.** On the PR branch:
 
 ```
-/epistemic-debt
+/epistemic:debt
 ```
 
 **2. It resolves scope.** Detects a non-`main` branch with a diff → **PR mode**,
@@ -97,16 +97,21 @@ the same inputs always produce the same grade.
 
 ```
 /plugin marketplace add cnantoninor/epistemic-debt
-/plugin install epistemic-debt
+/plugin install epistemic
 ```
 
 Then, in any repo:
 
 ```
-/epistemic-debt
+/epistemic:debt
 ```
 
 …or just ask: *"measure epistemic debt on this repo."*
+
+> **Upgrading from 1.0.0?** The plugin was called `epistemic-debt` and its
+> command `/epistemic-debt`. Clients track the plugin by id, so the rename
+> doesn't reach an existing install — remove the old one and install
+> `epistemic`.
 
 ### Scope & options
 

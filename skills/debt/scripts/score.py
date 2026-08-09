@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cascade-weighted epistemic-debt scoring.
 
-Deterministic companion to the epistemic-debt SKILL. Given a 0-5
+Deterministic companion to the Epistemic Debt SKILL. Given a 0-5
 complexity score (Cₛ) and 0-5 grasp score (Gₑ) per abstraction layer,
 it computes each layer's gap, weights the gaps by their cascade cost
 multiplier, and maps the total to a grade band.
@@ -15,7 +15,7 @@ Usage (invoke by absolute path — see SKILL.md; do not rely on cwd):
            "L3_architecture":{"c":3,"g":3},
            "L2_design":{"c":2,"g":3},
            "L1_implementation":{"c":4,"g":4}}' \
-        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"
+        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/score.py"
 
 Any layer may be omitted (e.g. PR mode often has no L4 signal); omitted
 layers are simply excluded from the weighting. Unrecognised top-level keys

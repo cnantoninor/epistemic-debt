@@ -20,7 +20,7 @@ Usage (invoke by absolute path — see SKILL.md; do not rely on cwd):
            "L2_design": [
              {"confidence": 0.4, "claims": [1.0]}
            ]}' \
-        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/grasp.py"
+        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/grasp.py"
 
 Any layer may be omitted; only layers actually probed need appear. An
 unrecognised top-level key is an error (mirrors `score.py`): a misspelled

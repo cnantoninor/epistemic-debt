@@ -5,7 +5,7 @@ VENV := .venv
 # environment they are promised to work in — see `test-unit` below.
 VENV_PYTHON := $(VENV)/bin/python3
 PYTHON := python3
-SCRIPTS_DIR := skills/epistemic-debt/scripts
+SCRIPTS_DIR := skills/debt/scripts
 
 .PHONY: venv lint test test-unit test-integration check install-hooks clean
 

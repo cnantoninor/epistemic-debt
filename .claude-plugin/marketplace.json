@@ -1,5 +1,5 @@
 {
-  "name": "epistemic-tools",
+  "name": "antoninorau",
   "owner": {
     "name": "Antonino Rau",
     "url": "https://antoninorau.substack.com/"
@@ -10,7 +10,7 @@
   },
   "plugins": [
     {
-      "name": "epistemic-debt",
+      "name": "epistemic",
       "source": "./",
       "description": "Measure epistemic debt on a repo or PR. Read the framework: https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost",
       "version": "1.2.0"

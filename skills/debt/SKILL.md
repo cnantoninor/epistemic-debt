@@ -1,5 +1,5 @@
 ---
-name: epistemic-debt
+name: debt
 description: This skill should be used when the user asks to "measure epistemic debt", "assess epistemic debt", "check our understanding gap", "how much epistemic debt", "grade this repo/PR for epistemic debt", or wants to evaluate how far system complexity has outpaced team comprehension. Works on a whole repository or on a single PR/branch diff against origin/main. Combines repo scanning (system complexity) with direct comprehension testing (cognitive grasp — the skill quizzes the respondent on real parts of the system rather than asking them to self-rate), then produces a cascade-weighted grade and remediation next actions using Rau's Epistemic Debt framework.
 ---
 
@@ -202,7 +202,7 @@ essentials:
 
 ```bash
 echo '{"L1_implementation": [{"confidence": 0.7, "claims": [1.0, 0.5]}, ...], ...}' \
-    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/grasp.py"
+    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/grasp.py"
 ```
 
 This is a work assessment, not an exam — don't police code access; instead
@@ -222,7 +222,7 @@ absolute bundled path — never rely on the shell's working directory:
 # Installed as a plugin (include exactly the layers assessed in Phase 1,
 # using these four exact names; omit a layer only if it was not assessed):
 echo '{"L4_requirements":{"c":C,"g":G},"L3_architecture":{"c":C,"g":G},"L2_design":{"c":C,"g":G},"L1_implementation":{"c":C,"g":G}}' \
-    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"
+    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/score.py"
 # Standalone skill: use the absolute path to this skill's own scripts/score.py.
 ```
 
@@ -265,7 +265,7 @@ break-even condition:
 
 ```bash
 echo '{"gaps": {"L4_requirements": GAP, ...}}' \
-    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/recovery.py"
+    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/recovery.py"
 ```
 
 Fill the report's recovery-estimate section with the result. The script's

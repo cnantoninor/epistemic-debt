@@ -15,7 +15,7 @@ reproducible instead of re-derived in prose on every run.
 Usage (invoke by absolute path — see SKILL.md; do not rely on cwd):
     echo '{"gaps": {"L4_requirements": 2, "L3_architecture": 1,
                      "L2_design": 0, "L1_implementation": 3}}' \
-        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/recovery.py"
+        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/recovery.py"
 
 Any layer may be omitted (same layers `score.py` was given). Pass `rates`
 to override the default learning rates for layers the team has measured

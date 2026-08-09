@@ -1,6 +1,7 @@
 # Changelog
 
-All notable changes to the `epistemic-debt` plugin.
+All notable changes to the `epistemic` plugin (named `epistemic-debt` up to
+and including 1.0.0).
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -42,6 +43,15 @@ their own — see *Merged to main after v1.0.0* at the end.
 
 ### Changed
 
+- **The plugin is renamed `epistemic-debt` → `epistemic`, and its command is
+  namespaced `/epistemic-debt` → `/epistemic:debt`** (skill directory
+  `skills/epistemic-debt/` → `skills/debt/`; marketplace `epistemic-tools` →
+  `antoninorau`). The plugin id is what clients track, so **an existing
+  install does not update across the rename** — remove `epistemic-debt` and
+  install `epistemic`. Kept on a minor version deliberately: nothing depends
+  on this plugin programmatically, and the 1.x line is where the framework
+  itself still lives. The `epistemic-debt/` report output directory in target
+  repos is unchanged.
 - **Comprehension is graded per claim.** An articulated answer is decomposed
   into its independently checkable assertions and each is scored 0–1, instead
   of one judged score for a multi-part answer. Confidence remains one value

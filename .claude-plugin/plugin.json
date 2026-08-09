@@ -1,5 +1,5 @@
 {
-  "name": "epistemic-debt",
+  "name": "epistemic",
   "version": "1.2.0",
   "description": "Measure epistemic debt — how far system complexity has outpaced team comprehension — on a repository or a single PR. Scans complexity, tests grasp with grounded questions (not self-rating), and produces a cascade-weighted grade with a calibration gap and remediation next actions. Implements Antonino Rau's Epistemic Debt framework.",
   "author": {

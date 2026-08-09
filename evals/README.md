@@ -2,7 +2,7 @@
 
 Eval cases for `claude plugin eval`, scoring the *prompt-driven* behavior the
 unit tests can't reach (the scripts' math is covered by
-`skills/epistemic-debt/scripts/test_*.py`).
+`skills/debt/scripts/test_*.py`).
 
 > **Early access.** `claude plugin eval` is currently gated; if you see
 > `plugin eval is currently in early access`, the suite is authored and valid
