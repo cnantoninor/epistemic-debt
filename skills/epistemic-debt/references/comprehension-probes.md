@@ -123,6 +123,19 @@ round-trips justifies it.
 4. **Decompose the answer into its distinct claims** (the checkable
    assertions it makes) and grade each **correctness 0–1** against the
    reference (partial credit). Show the reference + citation.
+   **Granularity rule: one claim per independently checkable assertion** —
+   the smallest statement that can be judged right or wrong against the
+   reference on its own. Never merge two assertions into one claim, and
+   never pad the list by restating the same assertion twice: `grasp.py`
+   averages over the claims, so the split *is* the score's denominator — the
+   same answer scores differently depending on how finely it is cut.
+   *Worked example:* the answer "eviction removes the oldest entry, and it
+   runs on every `get()` call" is **two** claims — (1) eviction order is
+   oldest-first, (2) eviction is triggered by `get()`. If the reference says
+   eviction is oldest-first but runs only on `put()`, grade `[1.0, 0.0]` →
+   answer correctness 0.5 — not one merged claim graded 0.5 by feel.
+   **Record the claim count per answer**; it goes in the report's probe
+   table so the decomposition itself is auditable.
 5. Record the answer as `{confidence, claims: [...]}` — the aggregation
    into an answer/layer correctness happens in `scripts/grasp.py` (see
    Scoring → Gₑ below), not by hand.
@@ -141,27 +154,34 @@ Feed every layer's answers to `scripts/grasp.py` (invoked the same way
 Phase 3 invokes `score.py` — see `SKILL.md`); it computes
 `answer correctness = mean(claim correctness)`,
 `correctness = mean(answer correctness across questions)`, and
-`Gₑ = round(correctness × 5)`, so the aggregation is reproducible. Feed
+`Gₑ = round(correctness × 5)` (Python round-half-to-even: 2.5 → 2,
+4.5 → 4), so the aggregation is reproducible. Feed
 the resulting Gₑ into `scripts/score.py` exactly as before — that engine
 is unchanged.
 
 ## Calibration (diagnostic only — never changes the grade)
 
 `scripts/grasp.py` also returns, per layer: `confidence = mean(answer
-confidence)`, `gap = confidence − correctness`, and a flag:
+confidence)`, `calibration_gap = confidence − correctness`, and a flag
+(the key is deliberately *not* named `gap` — that name belongs to the
+C−G scale-point gaps `recovery.py` consumes):
 
-- `gap ≳ +0.3` → **overconfident** (the confident-and-wrong danger zone).
-- `gap ≈ 0` → well-calibrated.
-- `gap ≲ −0.3` → underconfident (knows more than they think).
+- `calibration_gap ≳ +0.3` → **overconfident** (the confident-and-wrong
+  danger zone).
+- `calibration_gap ≈ 0` → well-calibrated.
+- `calibration_gap ≲ −0.3` → underconfident (knows more than they think).
 
 Flag overconfident layers prominently in the report.
 
 ## Report (methodology + limitations)
 
-Record: format, questions-per-layer, conditions (work-realistic/open), who
-was tested, and that sampling was complexity-weighted. State the limits:
-measures the respondent(s) present — not "the team"; at 1 question/layer a
-single answer swings that layer's Gₑ; grading is LLM-judged and
-code-derived (fallible, but auditable via the cited references), done per
-claim for correctness; confidence is self-reported, one value per answer,
-asked in the same prompt as that answer and before any grading was shown.
+Record: format, questions-per-layer, the claim count per answer, conditions
+(work-realistic/open), who was tested, and that sampling was
+complexity-weighted. State the limits: measures the respondent(s) present —
+not "the team"; at 1 question/layer a single answer swings that layer's Gₑ;
+grading is LLM-judged and code-derived (fallible, but auditable via the
+cited references *and* the recorded per-answer claim counts — the
+decomposition, not just the grading, must be checkable), done per claim for
+correctness, one claim per independently checkable assertion; confidence is
+self-reported, one value per answer, asked in the same prompt as that
+answer and before any grading was shown.

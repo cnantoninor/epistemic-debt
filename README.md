@@ -172,8 +172,10 @@ reproducible.)
 ### From scores to a grade
 
 The weighted gaps normalize to a **debt index (0–1)**, which maps to a letter
-grade: low → **A / B** (Healthy / Minor), mid → **C** (Moderate), high →
-**D / F** (Serious / Critical). A **floor** ensures one severe high-layer gap
+grade at the cutoffs `score.py` fixes: **A** below 0.10 ("Negligible /
+Credit"), **B** below 0.25 ("Low"), **C** below 0.45 ("Moderate"), **D**
+below 0.70 ("High"), and **F** at 0.70 or above ("Critical"). A **floor**
+ensures one severe high-layer gap
 can't be averaged away by clean lower-layer code. Two indices are emitted: a
 **scope-relative** one (denominator = only the layers present) that drives the
 grade, and an **absolute** one (fixed 4-layer denominator) for ranking across

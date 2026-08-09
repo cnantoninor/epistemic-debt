@@ -29,6 +29,7 @@ skills/epistemic-debt/
   scripts/score.py                  # Phase 3: cascade-weighted grade from per-layer (Cₛ, Gₑ)
   scripts/grasp.py                  # Phase 2: Gₑ + calibration gap from per-claim probe scores
   scripts/recovery.py               # Phase 4/5: recovery time (τₖ) + AI break-even from gaps
+  scripts/cli_harness.py            # Shared subprocess runner + malformed-stdin contract assertion for the CLI tests (not matched by test_*.py discovery)
   scripts/test_score.py             # Unit + CLI tests for score.py
   scripts/test_grasp.py             # Unit + CLI tests for grasp.py
   scripts/test_recovery.py          # Unit + CLI tests for recovery.py
@@ -63,7 +64,9 @@ echo '{"gaps":{"L4_requirements":2,"L1_implementation":3}}' \
 ```
 
 Any layer may be omitted (PR mode often has no L4 signal); omitted layers are
-excluded from the weighting.
+excluded from the weighting. An *unrecognised* top-level key, by contrast, is
+a hard error in all three scripts — a misspelled layer name must fail loudly,
+never silently shrink the graded scope.
 
 **Test suite.** Each script has a stdlib-only `unittest` companion
 (`test_<name>.py`, co-located) covering both its pure functions (with
@@ -81,7 +84,8 @@ a script's math; don't rely on ad-hoc manual runs to validate a formula.
 **Eval suite.** The behavior that lives in markdown — scope resolution, the
 credit notice, grounded (never self-rated) probes, routing every number
 through the scripts, phase tracking — is scored by `claude plugin eval`
-cases under `evals/`, one directory per case. From the repo root:
+cases under `evals/`, one directory per case (gated in early access; see
+`evals/README.md`). From the repo root:
 
 ```bash
 claude plugin eval . --scaffold --allow-tools Bash Write
@@ -125,17 +129,21 @@ inputs must yield the same numbers.
 - `score.py` holds the canonical cascade multipliers **L1=1, L2=4, L3=10,
   L4=30**. `framework.md` documents the source's *ranges* (e.g. L4 30–70×)
   but explicitly defers to the script's fixed values. It also owns
-  the shared input guards the other two import: `check_number` (rejects JSON
-  booleans explicitly — `bool` subclasses `int`, so a stray `true` would
-  otherwise score as a full-credit claim, a maximum confidence or a
-  one-point gap, turning malformed input into a plausible grade),
-  `check_mapping`, and `load_object`. All three CLIs share one failure
-  contract: **exit 1 and a single legible line on stderr, never a
-  traceback** — the skill reads that stderr, and a stack trace buries the
+  the shared symbols the other two import: `SCALE_MAX`, the input guards
+  `check_number` (rejects JSON booleans explicitly — `bool` subclasses
+  `int`, so a stray `true` would otherwise score as a full-credit claim, a
+  maximum confidence or a one-point gap, turning malformed input into a
+  plausible grade), `check_mapping`, `load_object` and `check_layer_names`
+  (the strict unknown-key check shared with `grasp.py`), plus `run_cli`,
+  the single CLI shell all three `main()`s collapse onto. That shell is the
+  one failure contract: **exit 1 and a single legible line on stderr, never
+  a traceback** — the skill reads that stderr, and a stack trace buries the
   sentence saying what was wrong with the input.
 - `grasp.py` holds the claim/answer aggregation (`answer correctness =
-  mean(claim correctness)`, `Gₑ = round(correctness × 5)`), the calibration
-  gap/flag thresholds, and `CONFIDENCE_LABELS` — the
+  mean(claim correctness)`, `Gₑ = round(correctness × 5)` — Python
+  round-half-to-even: 2.5 → 2, 4.5 → 4), the calibration
+  gap/flag thresholds (output key `calibration_gap`, distinct from
+  recovery.py's C−G `gaps`), and `CONFIDENCE_LABELS` — the
   Guessing/Somewhat/Confident/Certain → 0.1/0.4/0.7/0.95 map that `SKILL.md`
   and `comprehension-probes.md` quote when phrasing the confidence question.
   `comprehension-probes.md` documents the protocol for *generating* the
@@ -188,7 +196,11 @@ also the only form the evals can observe.
 - **Version bumps** must be applied in **both** `.claude-plugin/plugin.json` and
   `.claude-plugin/marketplace.json` (they currently mirror each other).
 - **Attribution is required.** Every run shows the credit notice for Antonino Rau
-  before Phase 0, and the report template ends with the credit footer. Preserve the
+  before Phase 0, and the report template ends with the credit footer. The ⚠️
+  "estimate, not a fact" disclaimer is **part of the mandatory credit block** —
+  in both `SKILL.md` and `commands/epistemic-debt.md` — and must never be
+  dropped from it: a tool about miscalibrated confidence carries its own
+  calibration caveat where the user of the tool sees it. Preserve the
   Substack links (`plugin.json` homepage, README, SKILL.md credit block, template
   footer) when editing.
 - **Invoke every script by absolute path** from the skill —

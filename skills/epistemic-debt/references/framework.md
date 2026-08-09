@@ -116,8 +116,8 @@ used. Phase 5 replaces them with the team's measured rates.
 
 **Total recovery:** `T_recovery = Σₖ τₖ`
 
-**Effective (cascade-inclusive) cost at layer k:** `Cₖ = Σⱼ₌₁ᵏ τⱼ`
-(cumulative through layer k, in L1→L4 order).
+**Cumulative recovery cost through layer k:** `Cₖ = Σⱼ₌₁ᵏ τⱼ`
+(in L1→L4 order).
 
 **AI break-even** — AI-assisted development is net-negative when the
 cascade-weighted recovery cost exceeds the time AI saved:

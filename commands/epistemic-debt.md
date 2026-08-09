@@ -10,6 +10,8 @@ Before anything else, show this credit notice once (verbatim), then proceed:
 > 📊 **Epistemic Debt** — framework & method by **Antonino Rau**.
 > The math & the cost: https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost
 > More writing: https://antoninorau.substack.com/
+>
+> ⚠️ The grade below is an **estimate**, not a fact — it's produced by a purely speculative math framework (see the article above), not an empirically validated model. Treat it as a structured prompt for discussion, not ground truth.
 
 Arguments (all optional): $ARGUMENTS
 

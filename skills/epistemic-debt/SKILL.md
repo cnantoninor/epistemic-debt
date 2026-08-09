@@ -23,6 +23,8 @@ Open every run with this, before doing anything else:
 > 📊 **Epistemic Debt** — framework & method by **Antonino Rau**.
 > The math & the cost: https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost
 > More writing: https://antoninorau.substack.com/
+>
+> ⚠️ The grade below is an **estimate**, not a fact — it's produced by a purely speculative math framework (see the article above), not an empirically validated model. Treat it as a structured prompt for discussion, not ground truth.
 
 ## Interaction rules (mandatory — apply to every phase)
 
@@ -214,10 +216,18 @@ Prefer the deterministic script for reproducibility. Invoke it by its
 absolute bundled path — never rely on the shell's working directory:
 
 ```bash
-# Installed as a plugin:
-echo '{"L4_requirements":{"c":C,"g":G}, ...}' | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"
+# Installed as a plugin (include exactly the layers assessed in Phase 1,
+# using these four exact names; omit a layer only if it was not assessed):
+echo '{"L4_requirements":{"c":C,"g":G},"L3_architecture":{"c":C,"g":G},"L2_design":{"c":C,"g":G},"L1_implementation":{"c":C,"g":G}}' \
+    | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"
 # Standalone skill: use the absolute path to this skill's own scripts/score.py.
 ```
+
+The script rejects any key that is not one of the four canonical layer
+names, so a misspelled layer fails loudly instead of silently shrinking the
+scope. **After invoking `score.py`, check that the returned `per_layer` keys
+match the layers assessed in Phase 1 — if they differ, stop, fix the input,
+and re-run rather than reporting a grade computed over the wrong layer set.**
 
 If Python is unavailable, compute the same way inline following the logic
 in `scripts/score.py`. Report the per-layer gap, the weighted
@@ -251,7 +261,7 @@ learning rates from `references/framework.md` and returns `τₖ` per layer,
 break-even condition:
 
 ```bash
-echo '{"gaps": {"L4_requirements": G, ...}}' \
+echo '{"gaps": {"L4_requirements": GAP, ...}}' \
     | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/recovery.py"
 ```
 
@@ -259,7 +269,10 @@ Fill the report's recovery-estimate section with the result. The script's
 `estimate` field is `true` whenever any layer used a default rate — label
 that output plainly as an **ESTIMATE from default rates** and print the
 rates used, so the user gets numbers without asking and without them being
-mistaken for the team's calibrated figures.
+mistaken for the team's calibrated figures. The output's `layers_assessed`
+counts the gap entries supplied: when it is `0`, the zeros mean **nothing
+was measured** (every layer carried credit or was omitted) — report "no debt
+to recover", never a calibrated zero-week recovery.
 
 ## Phase 5 — Quantitative deepening with real rates (optional, non-blocking)
 
@@ -274,4 +287,8 @@ AI-time-saved `δ` to the same `scripts/recovery.py` call (via its `rates`
 and `delta` input fields), for a calibrated `τₖ`/`T_recovery` and a real
 break-even verdict. Only compute it once the user supplies those inputs; if
 they decline, the delivered report stands on its own — end the run there
-rather than pressing.
+rather than pressing. After the re-run, cross-check each layer's
+`using_default_rate` in the output: a layer the team supplied a rate for
+must show `false` — a `true` there means the rate never reached the script,
+so stop and fix the input instead of presenting default-rate numbers as
+calibrated.

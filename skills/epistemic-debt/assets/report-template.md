@@ -40,6 +40,16 @@ respondent's answer, the score (0-1), and the resulting 0-5 Gₑ. Cite the
 For articulated answers, grading is per claim — the answer score is the mean
 of its claims' correctness; note any claims that pulled the score down.}
 
+| Layer | Question | Claims (count) | Per-claim correctness | Answer correctness |
+|-------|----------|----------------|-----------------------|--------------------|
+| {L#}  | {label}  | {N}            | {[0-1, …]}            | {mean} |
+
+*(One claim per independently checkable assertion — see the granularity rule
+in `references/comprehension-probes.md`. The claim count is recorded so the
+decomposition itself is auditable: `grasp.py` averages over the claims, so
+the split is the score's denominator. Multiple-choice answers are a single
+claim by construction.)*
+
 ## Calibration (confidence vs tested grasp)
 
 | Layer | Tested Gₑ | Mean confidence | Gap (conf − correct) | Flag |
@@ -79,17 +89,23 @@ trigger if left unaddressed.}
 
 ## Recovery estimate (default rates)
 
-`τₖ = gapₖ / rₖ` using the default learning rates (L1=2.0, L2=1.0, L3=0.5,
-L4=0.33 gap-points/eng-week — see `references/framework.md`).
-**ESTIMATE from default rates**, not the team's measured rates.
+`τₖ = gapₖ / rₖ` — rates in gap-points/eng-week; the defaults are
+`DEFAULT_RATES` in `scripts/recovery.py` (rationale table in
+`references/framework.md`). The rₖ column is each layer's `rate` from the
+script's `per_layer` output, so it stays correct when Phase 5 substitutes
+the team's measured rates. **ESTIMATE from default rates**, not the team's
+measured rates.
 
-| Layer | Gap | Default rₖ | τₖ (eng-weeks) |
-|-------|-----|-----------|----------------|
-| L4 Requirements  | {gap} | 0.33 | {τ} |
-| L3 Architecture  | {gap} | 0.5  | {τ} |
-| L2 Design        | {gap} | 1.0  | {τ} |
-| L1 Implementation| {gap} | 2.0  | {τ} |
+| Layer | Gap | rₖ used | τₖ (eng-weeks) |
+|-------|-----|---------|----------------|
+| L4 Requirements  | {gap} | {rate} | {τ} |
+| L3 Architecture  | {gap} | {rate} | {τ} |
+| L2 Design        | {gap} | {rate} | {τ} |
+| L1 Implementation| {gap} | {rate} | {τ} |
 
+- **Layers assessed:** {layers_assessed} — when this is 0, the zeros below
+  mean *nothing was measured* (every layer carried credit or was omitted),
+  not a calibrated zero-week recovery.
 - **Total recovery (T_recovery = Σ τₖ):** {weeks} engineer-weeks (estimate)
 - **AI break-even:** AI-assisted work is a net loss when Σ cₖ·τₖ > δ
   (δ = dev time AI saved). Cascade-weighted cost Σ cₖ·τₖ = {value}; δ is
