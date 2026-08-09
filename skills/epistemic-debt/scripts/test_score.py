@@ -7,13 +7,13 @@ or:
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from cli_harness import CliHarness  # noqa: E402
 from score import (  # noqa: E402
     SCALE_MAX,
     _band,
@@ -167,16 +167,36 @@ class ComputeGradeTests(unittest.TestCase):
         # grasp exceeds complexity everywhere -> every gap is 0, every
         # layer is credit, weighted_realized == 0 so dominant_layer must be
         # None (not an arbitrary max() pick among all-zero weights).
+        # Layers deliberately fed in L1-first order: credit_layers must come
+        # back in DESCENDING cascade order (L4=30, L3=10, L2=4, L1=1), not
+        # input key order.
         layers = {name: {"c": 2, "g": 4} for name in
-                  ("L4_requirements", "L3_architecture", "L2_design", "L1_implementation")}
+                  ("L1_implementation", "L2_design", "L3_architecture", "L4_requirements")}
         result = compute_grade(layers)
         self.assertEqual(result["debt_index"], 0.0)
         self.assertEqual(result["grade"], "A")
         self.assertIsNone(result["dominant_layer"])
         self.assertEqual(
-            set(result["credit_layers"]),
-            {"L4_requirements", "L3_architecture", "L2_design", "L1_implementation"},
+            result["credit_layers"],
+            ["L4_requirements", "L3_architecture", "L2_design", "L1_implementation"],
         )
+
+    def test_dominant_layer_tie_breaks_to_higher_layer_in_both_key_orders(self):
+        # Exact weighted tie, hand-computed:
+        #   L1: gap = 4 - 0 = 4, weighted = 1 * 4 = 4
+        #   L2: gap = 1 - 0 = 1, weighted = 4 * 1 = 4
+        # The tie-break is (weighted, CASCADE[name]) so the higher layer wins:
+        # CASCADE L2_design = 4 > L1_implementation = 1 -> L2_design must be
+        # dominant regardless of which key the JSON happens to put first
+        # (previously max() fell back to insertion order and the reported
+        # field flipped under a semantically irrelevant permutation).
+        for layers in (
+            {"L1_implementation": {"c": 4, "g": 0}, "L2_design": {"c": 1, "g": 0}},
+            {"L2_design": {"c": 1, "g": 0}, "L1_implementation": {"c": 4, "g": 0}},
+        ):
+            with self.subTest(order=list(layers)):
+                result = compute_grade(layers)
+                self.assertEqual(result["dominant_layer"], "L2_design")
 
     def test_single_maxed_out_layer_floors_to_critical(self):
         # L4 alone at gap=5 (worst case): weighted_realized = weighted_possible
@@ -196,14 +216,8 @@ class ComputeGradeTests(unittest.TestCase):
         self.assertEqual(result["credit_layers"], [])
 
 
-class CliTests(unittest.TestCase):
-    def _run(self, stdin_text: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            [sys.executable, str(SCRIPT)],
-            input=stdin_text,
-            capture_output=True,
-            text=True,
-        )
+class CliTests(CliHarness, unittest.TestCase):
+    SCRIPT = SCRIPT
 
     def test_cli_smoke_matches_direct_call(self):
         proc = self._run(
@@ -217,31 +231,51 @@ class CliTests(unittest.TestCase):
     def test_cli_rejects_unrecognised_layers(self):
         proc = self._run('{"not_a_layer": {"c": 1, "g": 1}}')
         self.assertEqual(proc.returncode, 1)
+        self.assertIn("Unknown layer(s) ['not_a_layer']", proc.stderr)
+
+    def test_cli_rejects_empty_object_with_distinct_message(self):
+        # {} has no unknown keys, so it must not hit the unknown-layer error;
+        # it gets its own legible "nothing to grade" message.
+        proc = self._run("{}")
+        self.assertEqual(proc.returncode, 1)
         self.assertIn("No recognised layers", proc.stderr)
 
-    def test_cli_ignores_unknown_keys_alongside_recognised_layers(self):
-        # main() filters raw input to keys in CASCADE, so extra/unknown
-        # keys are silently dropped rather than erroring.
+    def test_cli_rejects_unknown_keys_alongside_recognised_layers(self):
+        # Inverse of the old tolerance (which silently filtered to CASCADE
+        # keys): a misspelled layer would be dropped and the scope-relative
+        # debt_index recomputed over the survivors, turning an F into an A at
+        # exit 0. Any unrecognised top-level key must now fail loudly, naming
+        # the unknown keys and the expected set.
         proc = self._run(
             '{"L1_implementation": {"c": 1, "g": 1}, "notes": "ignore me"}'
         )
-        self.assertEqual(proc.returncode, 0)
-        payload = json.loads(proc.stdout)
-        self.assertIn("L1_implementation", payload["per_layer"])
-        self.assertNotIn("notes", payload["per_layer"])
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("Unknown layer(s) ['notes']", proc.stderr)
+        self.assertIn(
+            "expected ['L1_implementation', 'L2_design', 'L3_architecture', 'L4_requirements']",
+            proc.stderr,
+        )
+
+    def test_cli_rejects_misspelled_layer_name(self):
+        # The exact one-character typo from the review's F->A reproduction:
+        # "L4_requirement" (missing the final s) must be an error, never a
+        # silently shrunken scope.
+        proc = self._run(
+            '{"L4_requirement": {"c": 5, "g": 0}, "L1_implementation": {"c": 1, "g": 1}}'
+        )
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("Unknown layer(s) ['L4_requirement']", proc.stderr)
 
     def test_cli_reports_malformed_stdin_without_a_stack_trace(self):
         # Every failure mode is exit 1 plus one legible line on stderr: the
         # skill reads that stderr, and a traceback buries the sentence that
-        # says what was wrong with the input.
-        for stdin_text in ("[1, 2, 3]", "not json", '{"L1_implementation": [1, 2]}',
-                           '{"L1_implementation": {"c": 3}}',
-                           '{"L1_implementation": {"c": true, "g": 1}}'):
-            with self.subTest(stdin_text=stdin_text):
-                proc = self._run(stdin_text)
-                self.assertEqual(proc.returncode, 1)
-                self.assertNotIn("Traceback", proc.stderr)
-                self.assertTrue(proc.stderr.strip())
+        # says what was wrong with the input (shared contract assertion in
+        # cli_harness.py).
+        self.assert_malformed_stdin_contract((
+            "[1, 2, 3]", "not json", '{"L1_implementation": [1, 2]}',
+            '{"L1_implementation": {"c": 3}}',
+            '{"L1_implementation": {"c": true, "g": 1}}',
+        ))
 
 
 if __name__ == "__main__":

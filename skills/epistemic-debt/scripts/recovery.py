@@ -25,14 +25,12 @@ verdict; without it the verdict is left null pending that input.
 """
 from __future__ import annotations
 
-import json
-import sys
-
 from score import (  # co-located; cascade weights + shared input guards
     CASCADE,
+    SCALE_MAX,
     check_mapping,
     check_number,
-    load_object,
+    run_cli,
 )
 
 # Default learning rates (gap-points closed per engineer-week). Empirical
@@ -59,6 +57,21 @@ def compute_recovery(
     # `is not None`, not truthiness: an empty *list* is falsy, and letting it
     # pass as "no rates given" would accept a wrong type in silence.
     rates = check_mapping(rates, "'rates'") if rates is not None else {}
+    # Validate the rates keys before the loop. A typo'd key would otherwise
+    # silently revert that layer to the policy default — defeating Phase 5,
+    # whose whole purpose is substituting the team's measured rates — and a
+    # rate for a layer with no gap entry would be silently ignored.
+    unknown_rates = sorted(name for name in rates if name not in CASCADE)
+    if unknown_rates:
+        raise ValueError(
+            f"Unknown layer(s) in 'rates' {unknown_rates}; expected {sorted(CASCADE)}."
+        )
+    unmatched_rates = sorted(name for name in rates if name not in gaps)
+    if unmatched_rates:
+        raise ValueError(
+            f"Rate(s) given for layer(s) {unmatched_rates} that have no entry in 'gaps'; "
+            f"a rate only applies to a layer whose gap is being recovered."
+        )
     per_layer: dict[str, dict[str, object]] = {}
     raw_tau: dict[str, float] = {}
     t_recovery = 0.0
@@ -67,7 +80,10 @@ def compute_recovery(
     for name, gap in gaps.items():
         if name not in CASCADE:
             raise ValueError(f"Unknown layer {name!r}.")
-        gap = check_number(gap, f"Gap for {name!r}", minimum=0)
+        # A legitimate gap is C−G on the 0-5 scale, so SCALE_MAX bounds it:
+        # a caller passing score.py's *weighted* field (which sits right next
+        # to `gap` in its output) would otherwise inflate the estimate 10-30x.
+        gap = check_number(gap, f"Gap for {name!r}", minimum=0, maximum=SCALE_MAX)
         using_default = name not in rates
         rate = check_number(rates.get(name, DEFAULT_RATES[name]), f"Rate for {name!r}")
         if rate <= 0:
@@ -84,8 +100,10 @@ def compute_recovery(
         weighted_cost += CASCADE[name] * tau
 
     # Accumulate from the unrounded taus (not the rounded per_layer["tau"])
-    # so the last layer's cumulative_cost always matches t_recovery, instead
-    # of drifting from independently-rounded per-layer values.
+    # so the highest present layer's cumulative_cost always matches
+    # t_recovery, instead of drifting from independently-rounded per-layer
+    # values. ("Highest present", not "last": the output preserves input key
+    # order, so the L1→L4-cumulative maximum can print first.)
     cumulative = 0.0
     for name in LAYER_ORDER:
         if name not in per_layer:
@@ -111,31 +129,28 @@ def compute_recovery(
         "net_benefit": net_benefit,
         "breakeven_exceeded": breakeven_exceeded,
         "estimate": any(l["using_default_rate"] for l in per_layer.values()),
+        # Disambiguates "zero measured debt" from "nothing measured": with an
+        # empty `gaps` every total is 0.0 and `estimate` is false (no default
+        # rate was used because no layer was assessed) — a consumer needs this
+        # count to report "nothing to recover" rather than a calibrated zero.
+        "layers_assessed": len(per_layer),
     }
 
 
-def main() -> int:
-    try:
-        return _run(sys.stdin)
-    except ValueError as exc:
-        print(exc, file=sys.stderr)
-        return 1
-
-
-def _run(stream: object) -> int:
-    raw = load_object(stream)
+def _compute_cli(raw: dict) -> dict[str, object]:
     gaps = raw.get("gaps")
     # Distinguish a missing key (invalid) from an empty map (valid): Phase 4
     # always invokes this, and an empty `gaps` is legitimate when every
     # assessed layer carries epistemic credit (all gaps floored to 0) or the
-    # caller omitted zero-valued layers. compute_recovery({}) returns zeros.
+    # caller omitted zero-valued layers. compute_recovery({}) returns zeros
+    # with layers_assessed = 0.
     if gaps is None:
-        print("No 'gaps' in input.", file=sys.stderr)
-        return 1
-    result = compute_recovery(gaps, raw.get("rates"), raw.get("delta"))
-    json.dump(result, sys.stdout, indent=2)
-    sys.stdout.write("\n")
-    return 0
+        raise ValueError("No 'gaps' in input.")
+    return compute_recovery(gaps, raw.get("rates"), raw.get("delta"))
+
+
+def main() -> int:
+    return run_cli(_compute_cli)
 
 
 if __name__ == "__main__":

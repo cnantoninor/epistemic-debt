@@ -22,19 +22,19 @@ Usage (invoke by absolute path — see SKILL.md; do not rely on cwd):
            ]}' \
         | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/grasp.py"
 
-Any layer may be omitted; only layers actually probed need appear. Unknown
-top-level keys are ignored (mirrors `score.py`). Feed the resulting `g`
-(and `c`, from Phase 1) into `score.py` for the grade.
+Any layer may be omitted; only layers actually probed need appear. An
+unrecognised top-level key is an error (mirrors `score.py`): a misspelled
+layer name must fail loudly, not silently drop that layer's probe results.
+Feed the resulting `g` (and `c`, from Phase 1) into `score.py` for the
+grade.
 """
 from __future__ import annotations
 
-import json
-import sys
-
 from score import (  # co-located; canonical names + shared input guards
-    CASCADE,
+    SCALE_MAX,
+    check_layer_names,
     check_number,
-    load_object,
+    run_cli,
 )
 
 # Confidence label → number, for respondents who answer in words rather
@@ -46,7 +46,8 @@ CONFIDENCE_LABELS = {
     "certain": 0.95,
 }
 
-SCALE_MAX = 5  # Gₑ is reported 0-5, same scale as Cₛ in score.py
+# Gₑ is reported 0-SCALE_MAX (5) — the same scale as Cₛ, imported from
+# score.py so the two can never diverge silently.
 
 # Calibration gap thresholds (confidence - correctness). CALIBRATION KNOB —
 # keep in sync with the "≳ +0.3 / ≈ 0 / ≲ -0.3" language in
@@ -80,20 +81,14 @@ def _confidence_value(confidence: float | str) -> float:
         label = confidence.strip().lower()
         if label in CONFIDENCE_LABELS:
             return CONFIDENCE_LABELS[label]
-        if not _looks_numeric(label):
+        try:
+            confidence = float(label)
+        except ValueError:
             raise ValueError(
                 f"Unknown confidence label {confidence!r}; "
                 f"expected one of {sorted(CONFIDENCE_LABELS)} or a 0-1 number."
-            )
-    return _score_value(confidence, "Confidence")
-
-
-def _looks_numeric(text: str) -> bool:
-    try:
-        float(text)
-    except ValueError:
-        return False
-    return True
+            ) from None
+    return check_number(confidence, "Confidence", minimum=0, maximum=1)
 
 
 def _mean(values: list[float]) -> float:
@@ -145,13 +140,17 @@ def score_layer(answers: list[dict[str, object]]) -> dict[str, object]:
     scored = [score_answer(a) for a in answers]
     correctness = _mean([a["correctness"] for a in scored])
     confidence = _mean([a["confidence"] for a in scored])
-    gap = round(confidence - correctness, 3)
+    calibration_gap = round(confidence - correctness, 3)
     return {
         "g": round(correctness * SCALE_MAX),
         "correctness": round(correctness, 3),
         "confidence": round(confidence, 3),
-        "gap": gap,
-        "flag": _calibration_flag(gap),
+        # Named `calibration_gap`, not `gap`: recovery.py consumes a map
+        # called `gaps` holding C−G scale points (0–5), while this is
+        # confidence − correctness (−1..+1). Under the shared name, feeding
+        # one where the other belongs was accepted silently.
+        "calibration_gap": calibration_gap,
+        "flag": _calibration_flag(calibration_gap),
         "answers": [
             {
                 "confidence": round(a["confidence"], 3),
@@ -163,20 +162,15 @@ def score_layer(answers: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
+def _compute_cli(raw: dict) -> dict[str, object]:
+    layers = check_layer_names(raw)
+    if not layers:
+        raise ValueError("No layers in input.")
+    return {name: score_layer(answers) for name, answers in layers.items()}
+
+
 def main() -> int:
-    try:
-        raw = load_object(sys.stdin)
-        layers = {name: v for name, v in raw.items() if name in CASCADE}
-        if not layers:
-            print("No layers in input.", file=sys.stderr)
-            return 1
-        result = {name: score_layer(answers) for name, answers in layers.items()}
-    except ValueError as exc:
-        print(exc, file=sys.stderr)
-        return 1
-    json.dump(result, sys.stdout, indent=2)
-    sys.stdout.write("\n")
-    return 0
+    return run_cli(_compute_cli)
 
 
 if __name__ == "__main__":

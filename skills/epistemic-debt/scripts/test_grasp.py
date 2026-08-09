@@ -7,13 +7,13 @@ or:
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from cli_harness import CliHarness  # noqa: E402
 from grasp import (  # noqa: E402
     _calibration_flag,
     _confidence_value,
@@ -142,8 +142,13 @@ class ScoreLayerTests(unittest.TestCase):
         result = score_layer(answers)
         self.assertAlmostEqual(result["confidence"], 0.5)
         self.assertAlmostEqual(result["correctness"], 1.0)
-        self.assertAlmostEqual(result["gap"], -0.5)
+        # calibration_gap = confidence - correctness = 0.5 - 1.0 = -0.5.
+        self.assertAlmostEqual(result["calibration_gap"], -0.5)
         self.assertEqual(result["flag"], "underconfident")
+        # The key is calibration_gap, NOT `gap`: recovery.py consumes a map
+        # named `gaps` on a different scale (C-G, 0-5 points), and the old
+        # shared name let one be fed as the other in silence.
+        self.assertNotIn("gap", result)
 
     def test_g_rounding_is_bankers_rounding_at_the_half(self):
         # correctness = 0.5 -> 0.5*5 = 2.5 -> Python's round() is
@@ -156,13 +161,15 @@ class ScoreLayerTests(unittest.TestCase):
     def test_overconfident_flag_end_to_end(self):
         answers = [{"confidence": 0.9, "claims": [0.6]}]
         result = score_layer(answers)
-        # gap = 0.9 - 0.6 = 0.3 (exactly at the overconfident threshold)
-        self.assertAlmostEqual(result["gap"], 0.3)
+        # calibration_gap = 0.9 - 0.6 = 0.3 (exactly at the overconfident
+        # threshold)
+        self.assertAlmostEqual(result["calibration_gap"], 0.3)
         self.assertEqual(result["flag"], "overconfident")
 
     def test_common_labels_classify_at_displayed_threshold(self):
         result = score_layer([{"confidence": 0.7, "claims": [0.4]}])
-        self.assertEqual(result["gap"], 0.3)
+        # calibration_gap = 0.7 - 0.4 = 0.3 -> overconfident.
+        self.assertEqual(result["calibration_gap"], 0.3)
         self.assertEqual(result["flag"], "overconfident")
 
     def test_empty_answers_rejected(self):
@@ -185,14 +192,8 @@ class ScoreLayerTests(unittest.TestCase):
                 score_answer(answer)
 
 
-class CliTests(unittest.TestCase):
-    def _run(self, stdin_text: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            [sys.executable, str(SCRIPT)],
-            input=stdin_text,
-            capture_output=True,
-            text=True,
-        )
+class CliTests(CliHarness, unittest.TestCase):
+    SCRIPT = SCRIPT
 
     def test_cli_multi_layer(self):
         proc = self._run(json.dumps({
@@ -209,31 +210,33 @@ class CliTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("No layers", proc.stderr)
 
-    def test_cli_ignores_unknown_keys_alongside_recognised_layers(self):
-        # main() must filter to recognised layer names the same way
-        # score.py's does, so incidental keys don't reach score_layer()
-        # (which would otherwise try to iterate a string's characters).
+    def test_cli_rejects_unknown_keys_alongside_recognised_layers(self):
+        # Inverse of the old tolerance: main() used to filter to recognised
+        # layer names, so a misspelled layer's probe results were silently
+        # dropped from the Gₑ it fed to score.py. Any unrecognised top-level
+        # key must now be a hard error (same shared check as score.py),
+        # naming the unknown keys and the expected set.
         proc = self._run(json.dumps({
             "L1_implementation": [{"confidence": 0.7, "claims": [1.0]}],
             "notes": "ignore me",
         }))
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        payload = json.loads(proc.stdout)
-        self.assertIn("L1_implementation", payload)
-        self.assertNotIn("notes", payload)
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("Unknown layer(s) ['notes']", proc.stderr)
+        self.assertIn(
+            "expected ['L1_implementation', 'L2_design', 'L3_architecture', 'L4_requirements']",
+            proc.stderr,
+        )
 
     def test_cli_reports_malformed_stdin_without_a_stack_trace(self):
         # Same contract as score.py: exit 1 and one legible line on stderr,
-        # never a traceback about .items() or float().
-        for stdin_text in ("[1, 2, 3]", "not json",
-                           '{"L1_implementation": {"confidence": 0.5, "claims": [1]}}',
-                           '{"L1_implementation": [{"confidence": true, "claims": [1]}]}',
-                           '{"L1_implementation": [{"claims": [1]}]}'):
-            with self.subTest(stdin_text=stdin_text):
-                proc = self._run(stdin_text)
-                self.assertEqual(proc.returncode, 1)
-                self.assertNotIn("Traceback", proc.stderr)
-                self.assertTrue(proc.stderr.strip())
+        # never a traceback about .items() or float() (shared contract
+        # assertion in cli_harness.py).
+        self.assert_malformed_stdin_contract((
+            "[1, 2, 3]", "not json",
+            '{"L1_implementation": {"confidence": 0.5, "claims": [1]}}',
+            '{"L1_implementation": [{"confidence": true, "claims": [1]}]}',
+            '{"L1_implementation": [{"claims": [1]}]}',
+        ))
 
 
 if __name__ == "__main__":

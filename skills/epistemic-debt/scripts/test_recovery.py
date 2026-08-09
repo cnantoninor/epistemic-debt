@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from cli_harness import CliHarness  # noqa: E402
 from recovery import compute_recovery  # noqa: E402
 
 SCRIPT = Path(__file__).resolve().parent / "recovery.py"
@@ -50,6 +51,8 @@ class ComputeRecoveryTests(unittest.TestCase):
         self.assertEqual(result["per_layer"]["L3_architecture"]["cumulative_cost"], 3.5)
         self.assertAlmostEqual(result["per_layer"]["L4_requirements"]["cumulative_cost"], 9.561, places=3)
         self.assertTrue(result["estimate"])
+        # Four entries in `gaps` -> four layers assessed.
+        self.assertEqual(result["layers_assessed"], 4)
         self.assertIsNone(result["delta"])
         self.assertIsNone(result["net_benefit"])
         self.assertIsNone(result["breakeven_exceeded"])
@@ -108,11 +111,17 @@ class ComputeRecoveryTests(unittest.TestCase):
     def test_empty_gaps_yields_zero_recovery(self):
         # Valid when every assessed layer carries epistemic credit (gaps
         # floored to 0) or zero-valued layers were omitted — no debt to recover.
+        # `estimate` stays False here by the field's contract ("true whenever
+        # any layer used a default rate" — with zero layers, none did); the
+        # disambiguator between "zero measured debt" and "nothing measured"
+        # is `layers_assessed`, which must be 0 so the report can say
+        # "nothing to recover" instead of presenting a calibrated zero.
         result = compute_recovery({})
         self.assertEqual(result["per_layer"], {})
         self.assertEqual(result["t_recovery"], 0.0)
         self.assertEqual(result["weighted_cost"], 0.0)
         self.assertFalse(result["estimate"])
+        self.assertEqual(result["layers_assessed"], 0)
         self.assertIsNone(result["delta"])
         self.assertIsNone(result["net_benefit"])
         self.assertIsNone(result["breakeven_exceeded"])
@@ -120,6 +129,36 @@ class ComputeRecoveryTests(unittest.TestCase):
     def test_unknown_layer_rejected(self):
         with self.assertRaises(ValueError):
             compute_recovery({"not_a_layer": 1})
+
+    def test_unknown_rates_key_rejected(self):
+        # A typo'd rates key ("L1_implementaton", missing the second "i")
+        # previously reverted that layer to the policy default in silence —
+        # in Phase 5, whose entire purpose is substituting the team's
+        # measured rates. It must now be a hard error naming the key.
+        with self.assertRaisesRegex(
+            ValueError, r"Unknown layer\(s\) in 'rates' \['L1_implementaton'\]"
+        ):
+            compute_recovery(
+                {"L1_implementation": 3}, rates={"L1_implementaton": 10.0}
+            )
+
+    def test_rate_for_layer_absent_from_gaps_rejected(self):
+        # A rate key that IS a valid layer name but has no entry in `gaps`
+        # would be silently ignored (the loop only visits gaps) — a distinct
+        # failure from an unknown key, with its own legible message.
+        with self.assertRaisesRegex(ValueError, r"no entry in 'gaps'"):
+            compute_recovery({"L1_implementation": 3}, rates={"L2_design": 1.5})
+
+    def test_gap_at_scale_max_accepted_but_above_rejected(self):
+        # score.py bounds c and g to [0, SCALE_MAX=5], so a legitimate gap
+        # can never exceed 5 — a 6 (or score.py's adjacent `weighted` field,
+        # 10-30x larger) must be rejected, not inflate the estimate.
+        # Hand-checked accept case: gap 5 at L1 default rate 2.0 ->
+        # tau = 5 / 2.0 = 2.5.
+        result = compute_recovery({"L1_implementation": 5})
+        self.assertAlmostEqual(result["per_layer"]["L1_implementation"]["tau"], 2.5)
+        with self.assertRaises(ValueError):
+            compute_recovery({"L1_implementation": 6})
 
     def test_zero_rate_rejected(self):
         with self.assertRaises(ValueError):
@@ -176,8 +215,8 @@ class ComputeRecoveryTests(unittest.TestCase):
         # rounded once at the end (0.0714285... + 0.5714285... = 0.6428571...
         # -> 0.643) — a 0.001 mismatch between two values meant to represent
         # the same total. Both must now derive from the same unrounded
-        # values so the last layer's cumulative_cost always equals
-        # t_recovery.
+        # values so the highest present layer's cumulative_cost always
+        # equals t_recovery.
         gaps = {
             "L1_implementation": 1 / 7,
             "L2_design": 4 / 7,
@@ -188,14 +227,8 @@ class ComputeRecoveryTests(unittest.TestCase):
         self.assertEqual(last_cumulative, 0.643)
 
 
-class CliTests(unittest.TestCase):
-    def _run(self, stdin_text: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            [sys.executable, str(SCRIPT)],
-            input=stdin_text,
-            capture_output=True,
-            text=True,
-        )
+class CliTests(CliHarness, unittest.TestCase):
+    SCRIPT = SCRIPT
 
     def test_cli_smoke(self):
         proc = self._run(json.dumps({
@@ -222,15 +255,13 @@ class CliTests(unittest.TestCase):
 
     def test_cli_reports_malformed_stdin_without_a_stack_trace(self):
         # Same contract as the other two CLIs: exit 1, one legible line, no
-        # traceback from .items() or .get().
-        for stdin_text in ("[1, 2, 3]", "not json", '{"gaps": [1, 2]}',
-                           '{"gaps": {"L1_implementation": 1}, "rates": [1]}',
-                           '{"gaps": {"L1_implementation": true}}'):
-            with self.subTest(stdin_text=stdin_text):
-                proc = self._run(stdin_text)
-                self.assertEqual(proc.returncode, 1)
-                self.assertNotIn("Traceback", proc.stderr)
-                self.assertTrue(proc.stderr.strip())
+        # traceback from .items() or .get() (shared contract assertion in
+        # cli_harness.py).
+        self.assert_malformed_stdin_contract((
+            "[1, 2, 3]", "not json", '{"gaps": [1, 2]}',
+            '{"gaps": {"L1_implementation": 1}, "rates": [1]}',
+            '{"gaps": {"L1_implementation": true}}',
+        ))
 
     def test_cli_runs_from_arbitrary_cwd(self):
         # Regression check for the `from score import CASCADE` co-located
