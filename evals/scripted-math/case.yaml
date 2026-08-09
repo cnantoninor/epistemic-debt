@@ -66,6 +66,33 @@ graders:
     match: contains
     weight: 1
 
+  # The report template's recovery section must label default-rate output as
+  # an estimate ("ESTIMATE from default rates"); this run guarantees
+  # estimate: true, so the label must appear in the written report.
+  - type: regex
+    name: recovery-labelled-estimate
+    target: files
+    pattern: "(?i)estimate.{0,60}default rate"
+    match: contains
+    weight: 1
+
+  # Phase 3 instruction added alongside the scripts' strict layer-name
+  # check: after score.py returns, the assistant must verify the output's
+  # per_layer keys against the layers assessed in Phase 1. This is the only
+  # case that reaches Phase 3 headlessly (answers are pre-supplied), so the
+  # instruction is graded here.
+  - type: llm
+    name: per-layer-keys-cross-checked
+    focus: trace
+    criteria: >
+      The assistant invoked score.py with the four exact canonical layer
+      names (L4_requirements, L3_architecture, L2_design, L1_implementation)
+      and, after the script returned, the per-layer results it reported
+      covered exactly the layers assessed in Phase 1 — no layer silently
+      missing from the grade, no misspelled or extra layer key anywhere in
+      the score.py input, and no unknown-layer error left unresolved.
+    weight: 1
+
   - type: llm
     name: numbers-come-from-scripts
     focus: trace

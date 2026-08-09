@@ -26,11 +26,22 @@ execution:
 runs: 2
 
 graders:
-  - type: regex
-    name: credit-notice
-    target: trace
-    pattern: "Antonino Rau"
-    match: contains
+  # llm, not a regex on trace: the string "Antonino Rau" lives in SKILL.md,
+  # which the assistant reads every run, so a trace regex passed even when
+  # the notice was never shown to the user. The judged criterion is that the
+  # notice appears in an *assistant message*, before Phase 0.
+  - type: llm
+    name: credit-notice-before-phase0
+    focus: trace
+    criteria: >
+      Before resolving the assessment scope (Phase 0), the assistant
+      presented the Antonino Rau credit notice to the user in its own
+      assistant message — not merely read it from SKILL.md — including the
+      warning that the grade is an estimate produced by a purely speculative,
+      not empirically validated framework and should be treated as a prompt
+      for discussion, not ground truth. Both the attribution and that
+      disclaimer appear in assistant output before any scope-resolution
+      statement.
     weight: 1
 
   - type: llm
