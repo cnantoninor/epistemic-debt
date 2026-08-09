@@ -78,7 +78,9 @@ stdin/stdout contract via `subprocess`. Run the whole suite:
 python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"
 ```
 
-There is still no linter or CI configured. Add tests alongside any change to
+`.github/workflows/tests.yml` runs this suite on every PR and on pushes to
+`main`, across Python 3.9 and 3.13, plus a check that the two manifests agree
+on the version. There is still no linter. Add tests alongside any change to
 a script's math; don't rely on ad-hoc manual runs to validate a formula.
 
 **Eval suite.** The behavior that lives in markdown — scope resolution, the
