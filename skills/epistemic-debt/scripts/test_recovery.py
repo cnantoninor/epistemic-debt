@@ -14,8 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from cli_harness import CliHarness  # noqa: E402
-from recovery import compute_recovery  # noqa: E402
+from cli_harness import CliHarness
+from recovery import compute_recovery
 
 SCRIPT = Path(__file__).resolve().parent / "recovery.py"
 
@@ -273,6 +273,9 @@ class CliTests(CliHarness, unittest.TestCase):
             capture_output=True,
             text=True,
             cwd=str(Path(__file__).resolve().parent.parent.parent.parent),
+            # The assertion below is the check; raising here would lose the
+            # stderr it reports on failure.
+            check=False,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
 

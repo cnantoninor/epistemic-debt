@@ -1,0 +1,6 @@
+# Dev-only tooling. Includes production requirements (currently none) so a
+# single `pip install -r requirements-dev.txt` sets up everything needed to
+# lint and test.
+-r requirements.txt
+
+ruff==0.16.1

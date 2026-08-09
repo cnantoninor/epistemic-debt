@@ -29,6 +29,12 @@ their own — see *Merged to main after v1.0.0* at the end.
   prompt-driven behavior the unit tests cannot reach: whole-repo and PR scope
   resolution, a non-git directory, grounded probes, and an end-to-end run
   whose numbers are checked against the actual script calls.
+- **CI and a dev workflow** — `.github/workflows/ci.yml` runs the unit suite
+  on Python 3.9 and 3.13, `ruff` (rules pinned explicitly in
+  `pyproject.toml`), and a manifest version-sync check, all through the same
+  `make` targets a contributor runs locally or from the optional pre-push
+  hook. `requirements.txt` stays empty on purpose: the plugin's scripts are
+  stdlib-only, and only the linter uses a venv.
 - **A default-rate recovery estimate in every run.** Phase 4 always emits the
   report, the next actions and a recovery estimate; Phase 5 is now an
   optional re-run with the team's measured rates, offered after the report

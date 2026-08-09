@@ -34,6 +34,10 @@ class CliHarness:
             input=stdin_text,
             capture_output=True,
             text=True,
+            # Most callers here feed deliberately malformed stdin and assert
+            # on exit 1 — a non-zero exit is the expected outcome, not a
+            # reason to raise.
+            check=False,
         )
 
     def assert_malformed_stdin_contract(self, payloads) -> None:

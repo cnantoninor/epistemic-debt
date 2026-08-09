@@ -1,0 +1,6 @@
+# Production dependencies for the plugin's scripts (score.py, grasp.py,
+# recovery.py). Intentionally empty: they are stdlib-only by design (see
+# CLAUDE.md) so the skill can run them against any target repo with just a
+# system python3, no install step. Keep it that way — if a change to a
+# script needs a third-party package, that's a signal to reconsider the
+# change, not to fill in this file.

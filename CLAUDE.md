@@ -8,14 +8,24 @@ A **Claude Code plugin** (`epistemic-debt`) that grades a repository — or a si
 PR diff — for *epistemic debt*: the gap between system complexity (`Cₛ`, scanned
 from the repo) and team comprehension (`Gₑ`, tested directly, not self-rated). It
 implements Antonino Rau's [Epistemic Debt framework](https://antoninorau.substack.com/p/epistemic-debt-the-math-the-cost). This is **not** a Python
-package despite containing a few scripts — there is no build system, no
-dependencies, and no packaging. The behavior is almost entirely prompt-driven
+package despite containing a few scripts — nothing is built or published from
+here, and the scripts themselves have no runtime dependencies (the `Makefile`
+and `pyproject.toml` are dev tooling for lint and tests, not packaging). The
+behavior is almost entirely prompt-driven
 markdown; the scripts exist so every calculation the framework defines is
 computed once, deterministically, instead of re-derived in prose on each run.
 
 ## Repository map
 
 ```
+.github/workflows/ci.yml   # Runs `make test-unit` (matrix), `make lint`, `make validate-manifests`
+Makefile                   # venv/lint/test/check targets shared by CI and the pre-push hook
+pyproject.toml             # [tool.ruff] config only — this repo is still not a packaged project
+requirements.txt           # Prod deps for the scripts — intentionally empty (stdlib-only)
+requirements-dev.txt        # Dev deps (pinned ruff) for `make venv`
+scripts/                   # Repo dev tooling, NOT the plugin's runtime scripts (see below)
+  check_manifests.py        # `make validate-manifests`
+  git-hooks/pre-push        # Installed by `make install-hooks`
 .claude-plugin/
   plugin.json              # Plugin manifest (name, version, author) — bump version here
   marketplace.json         # Marketplace listing; version must match plugin.json
@@ -78,10 +88,32 @@ stdin/stdout contract via `subprocess`. Run the whole suite:
 python3 -m unittest discover -s skills/epistemic-debt/scripts -p "test_*.py"
 ```
 
-`.github/workflows/tests.yml` runs this suite on every PR and on pushes to
-`main`, across Python 3.9 and 3.13, plus a check that the two manifests agree
-on the version. There is still no linter. Add tests alongside any change to
-a script's math; don't rely on ad-hoc manual runs to validate a formula.
+`.github/workflows/ci.yml` runs this suite on every PR and on pushes to
+`main`, across Python 3.9 and 3.13, plus ruff and a check that the two
+manifests agree on the version. Add tests alongside any change to a script's
+math; don't rely on ad-hoc manual runs to validate a formula.
+
+**Dev tooling.** A `Makefile` wraps the venv, lint, and unit-test workflow so
+local dev, the pre-push hook, and `.github/workflows/ci.yml` all run the same
+commands instead of duplicating them:
+
+```bash
+make venv              # create .venv, install requirements-dev.txt
+make lint               # ruff check over skills/epistemic-debt/scripts/
+make test-unit           # the unittest suite above
+make validate-manifests  # plugin.json/marketplace.json version-sync check
+make check                # lint + test-unit + validate-manifests (what CI and pre-push run)
+make install-hooks         # installs a pre-push hook that runs `make check` and blocks the push on failure
+```
+
+Ruff's rule selection is pinned explicitly in `pyproject.toml` (not left to
+ruff's implicit config-less default) — see the comments there for why
+specific rules are excluded. `requirements.txt` is deliberately empty (the
+scripts are stdlib-only); `requirements-dev.txt` adds `ruff`, pinned, so a
+ruff release can't silently change what CI flags. Only `make lint` uses the
+venv: `test-unit` and `validate-manifests` deliberately run on the bare
+system `python3`, because a venv could mask a third-party import that would
+then fail in a target repo.
 
 **Eval suite.** The behavior that lives in markdown — scope resolution, the
 credit notice, grounded (never self-rated) probes, routing every number

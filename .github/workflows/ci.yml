@@ -1,0 +1,56 @@
+name: CI
+
+# Merging to main is effectively the release here — the README installs the
+# plugin straight from this repo's default branch — so the checks run before
+# the merge, not after.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Every job shells out to the Makefile rather than spelling out its own
+# command, so what CI enforces and what `make check` runs locally (and in the
+# pre-push hook) can't drift apart.
+jobs:
+  test:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The scripts run wherever the target repo lives, on whatever Python
+        # is already there. Testing the oldest still-supported version and the
+        # newest keeps that promise honest.
+        python-version: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      # `make test-unit` installs nothing on purpose: the scripts are
+      # stdlib-only by design, and an install step here would hide a
+      # violation of that rule.
+      - run: make test-unit
+
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: make lint
+
+  validate-manifests:
+    name: Validate plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: make validate-manifests

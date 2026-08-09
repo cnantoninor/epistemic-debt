@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Installed by `make install-hooks`. Blocks the push on any lint or unit
+# test failure so broken code never reaches origin.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+echo "pre-push: running 'make check' (lint + unit tests)..."
+make check

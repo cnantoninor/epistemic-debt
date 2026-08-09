@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from cli_harness import CliHarness  # noqa: E402
-from score import (  # noqa: E402
+from cli_harness import CliHarness
+from score import (
     SCALE_MAX,
     _band,
     check_mapping,

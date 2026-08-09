@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from cli_harness import CliHarness  # noqa: E402
-from grasp import (  # noqa: E402
+from cli_harness import CliHarness
+from grasp import (
     _calibration_flag,
     _confidence_value,
     score_answer,

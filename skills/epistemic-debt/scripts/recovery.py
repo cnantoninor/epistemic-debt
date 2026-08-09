@@ -128,7 +128,7 @@ def compute_recovery(
         "delta": delta,
         "net_benefit": net_benefit,
         "breakeven_exceeded": breakeven_exceeded,
-        "estimate": any(l["using_default_rate"] for l in per_layer.values()),
+        "estimate": any(layer["using_default_rate"] for layer in per_layer.values()),
         # Disambiguates "zero measured debt" from "nothing measured": with an
         # empty `gaps` every total is 0.0 and `estimate` is false (no default
         # rate was used because no layer was assessed) — a consumer needs this
