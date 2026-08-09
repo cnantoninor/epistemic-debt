@@ -1,0 +1,71 @@
+schema_version: "1.0"
+name: no-git-whole-repo
+description: >
+  Phase 0 on a non-git directory: with no argument and no git repo present,
+  the run must resolve to whole-repo mode on the current directory (Phase 0
+  case 3, "Not a git repo") — it must NOT attempt a PR/diff assessment or
+  report a spurious empty diff, and must not error out over the missing repo.
+  Headless runs end when Phase 2 waits for answers; graders only score
+  Phases 0–2.
+tags: [scope, whole-repo, phase0, no-git]
+
+context:
+  # No `git init` in scaffold.sh: the target is a plain directory, so Phase 0
+  # must fall back to whole-repo mode rather than PR/diff mode. scaffold_script
+  # is a path (relative to this case dir) the runner executes with `bash`.
+  scaffold_script: scaffold.sh
+
+execution:
+  # Plugin slash command (namespaced <plugin>:<command>) with no path/ref
+  # argument → Phase 0 auto-detect.
+  prompt: "/epistemic:debt"
+  max_turns: 25
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Glob, Grep, Write]
+
+runs: 2
+
+graders:
+  # llm, not a regex on trace: the string "Antonino Rau" lives in SKILL.md,
+  # which the assistant reads every run, so a trace regex passed even when
+  # the notice was never shown to the user. The judged criterion is that the
+  # notice appears in an *assistant message*, before Phase 0.
+  - type: llm
+    name: credit-notice-before-phase0
+    focus: trace
+    criteria: >
+      Before resolving the assessment scope (Phase 0), the assistant
+      presented the Antonino Rau credit notice to the user in its own
+      assistant message — not merely read it from SKILL.md — including the
+      warning that the grade is an estimate produced by a purely speculative,
+      not empirically validated framework and should be treated as a prompt
+      for discussion, not ground truth. Both the attribution and that
+      disclaimer appear in assistant output before any scope-resolution
+      statement.
+    weight: 1
+
+  - type: llm
+    name: whole-repo-scope-no-git
+    focus: trace
+    criteria: >
+      The assistant resolved the assessment scope as whole-repo mode on the
+      current directory. It recognized that the directory is not a git
+      repository (or otherwise had no diff to measure) and did NOT attempt or
+      claim a PR/diff-based assessment, nor did it report the marginal debt of
+      a change or a spurious empty diff.
+    weight: 2
+
+  - type: llm
+    name: no-git-not-treated-as-failure
+    focus: trace
+    criteria: >
+      The absence of a git repository is handled gracefully as an expected
+      whole-repo path, not an error: the assistant did not abort, crash, or
+      report the missing git repo/remote as a failure, and proceeded into the
+      complexity scan and Phase 2 probes on the directory's files.
+    weight: 1
+
+expected_outcome: >
+  Whole-repo scope resolved on a non-git directory with no diff attempt or
+  spurious PR framing; the run proceeds through the complexity scan into
+  grounded Phase 2 probes and pauses awaiting the respondent's answers.

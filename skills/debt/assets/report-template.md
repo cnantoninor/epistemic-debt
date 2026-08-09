@@ -36,7 +36,19 @@ that actually justify each layer's complexity score.}
 
 {Per layer: the question(s) asked and which part they probed, the
 respondent's answer, the score (0-1), and the resulting 0-5 Gₑ. Cite the
-`file:line` reference answers used to grade, so each verdict is auditable.}
+`file:line` reference answers used to grade, so each verdict is auditable.
+For articulated answers, grading is per claim — the answer score is the mean
+of its claims' correctness; note any claims that pulled the score down.}
+
+| Layer | Question | Claims (count) | Per-claim correctness | Answer correctness |
+|-------|----------|----------------|-----------------------|--------------------|
+| {L#}  | {label}  | {N}            | {[0-1, …]}            | {mean} |
+
+*(One claim per independently checkable assertion — see the granularity rule
+in `references/comprehension-probes.md`. The claim count is recorded so the
+decomposition itself is auditable: `grasp.py` averages over the claims, so
+the split is the score's denominator. Multiple-choice answers are a single
+claim by construction.)*
 
 ## Calibration (confidence vs tested grasp)
 
@@ -71,14 +83,37 @@ trigger if left unaddressed.}
   reasoning a glance can't answer.
 - **Limitations:** measures the respondent(s) above, not "the team"; at
   low depth (few questions/layer) a single question swings a layer's Gₑ; grading is
-  LLM-judged (auditable via the cited references); confidence is
-  self-reported.
+  LLM-judged (auditable via the cited references), done per claim for
+  articulated answers; confidence is self-reported, one value per answer,
+  asked in the same prompt as that answer and before any grading was shown.
 
-## Optional: quantitative deepening
+## Recovery estimate (default rates)
 
-{Only if requested — τₖ, T_recovery, and the AI break-even condition
-Σ cₖ·τₖ vs δ. Otherwise: "Not computed — run with quantitative mode for
-recovery-time and break-even estimates."}
+`τₖ = gapₖ / rₖ` — rates in gap-points/eng-week; the defaults are
+`DEFAULT_RATES` in `scripts/recovery.py` (rationale table in
+`references/framework.md`). The rₖ column is each layer's `rate` from the
+script's `per_layer` output, so it stays correct when Phase 5 substitutes
+the team's measured rates. **ESTIMATE from default rates**, not the team's
+measured rates.
+
+| Layer | Gap | rₖ used | τₖ (eng-weeks) |
+|-------|-----|---------|----------------|
+| L4 Requirements  | {gap} | {rate} | {τ} |
+| L3 Architecture  | {gap} | {rate} | {τ} |
+| L2 Design        | {gap} | {rate} | {τ} |
+| L1 Implementation| {gap} | {rate} | {τ} |
+
+- **Layers assessed:** {layers_assessed} — when this is 0, the zeros below
+  mean *nothing was measured* (every layer carried credit or was omitted),
+  not a calibrated zero-week recovery.
+- **Total recovery (T_recovery = Σ τₖ):** {weeks} engineer-weeks (estimate)
+- **AI break-even:** AI-assisted work is a net loss when Σ cₖ·τₖ > δ
+  (δ = dev time AI saved). Cascade-weighted cost Σ cₖ·τₖ = {value}; δ is
+  unknown until the team provides it.
+
+*This is a default-rate estimate. Re-run the quantitative deepening
+(Phase 5) with your team's own learning rates and δ to replace it with a
+calibrated recovery time and a real break-even verdict.*
 
 ---
 

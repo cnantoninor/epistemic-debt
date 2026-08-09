@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cascade-weighted epistemic-debt scoring.
 
-Deterministic companion to the epistemic-debt SKILL. Given a 0-5
+Deterministic companion to the Epistemic Debt SKILL. Given a 0-5
 complexity score (Cₛ) and 0-5 grasp score (Gₑ) per abstraction layer,
 it computes each layer's gap, weights the gaps by their cascade cost
 multiplier, and maps the total to a grade band.
@@ -15,14 +15,17 @@ Usage (invoke by absolute path — see SKILL.md; do not rely on cwd):
            "L3_architecture":{"c":3,"g":3},
            "L2_design":{"c":2,"g":3},
            "L1_implementation":{"c":4,"g":4}}' \
-        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/epistemic-debt/scripts/score.py"
+        | python3 "${CLAUDE_PLUGIN_ROOT}/skills/debt/scripts/score.py"
 
 Any layer may be omitted (e.g. PR mode often has no L4 signal); omitted
-layers are simply excluded from the weighting.
+layers are simply excluded from the weighting. Unrecognised top-level keys
+are rejected: a misspelled layer name must fail loudly rather than
+silently shrink the graded scope.
 """
 from __future__ import annotations
 
 import json
+import math
 import sys
 
 # Cascade cost multipliers (rework triggered by a gap at this layer).
@@ -78,6 +81,79 @@ FLOOR_WEIGHT = {
 }
 
 
+def check_number(
+    value: object,
+    description: str,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float:
+    """Reject anything JSON can supply that is not a real, finite, in-range
+    number. Shared by all three scripts — a malformed input must fail loudly
+    rather than produce a plausible-looking grade.
+
+    `bool` is excluded explicitly because it subclasses `int`, so JSON `true`
+    would otherwise sail through as a 1: a full-credit claim, a maximum
+    confidence, or a gap of one whole scale point. Strings are excluded
+    because `math.isfinite` raises `TypeError` on them rather than producing
+    a legible validation error.
+
+    Returns the value unchanged (not coerced to `float`) so integer inputs
+    stay integers in the JSON output.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{description} must be a finite number; got {value!r}.")
+    if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
+        if minimum is not None and maximum is not None:
+            bound = f"from {minimum} to {maximum}"
+        elif minimum is not None:
+            bound = f">= {minimum}"
+        else:
+            bound = f"<= {maximum}"
+        raise ValueError(f"{description} must be a finite number {bound}; got {value!r}.")
+    return value
+
+
+def check_mapping(value: object, description: str) -> dict:
+    """Reject a JSON value that has to be an object but isn't.
+
+    Without this, a list or a bare string reaches `.items()` or `[...]` and
+    surfaces as an `AttributeError`/`TypeError` from somewhere deep in the
+    arithmetic — a stack trace about the internals instead of a sentence
+    about the input.
+    """
+    if not isinstance(value, dict):
+        raise ValueError(f"{description} must be a JSON object; got {value!r}.")
+    return value
+
+
+def load_object(stream: object, description: str = "Input") -> dict:
+    """Read a JSON object from `stream`, or raise `ValueError` explaining why
+    it isn't one. Shared by all three CLIs so malformed stdin fails the same
+    legible way everywhere."""
+    try:
+        raw = json.loads(stream.read())  # type: ignore[attr-defined]
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{description} is not valid JSON: {exc}.") from None
+    return check_mapping(raw, description)
+
+
+def check_layer_names(raw: dict) -> dict:
+    """Reject any top-level key that is not a canonical CASCADE layer name.
+
+    Shared by `score.py` and `grasp.py` (recovery.py applies the same
+    strictness to its 'gaps' and 'rates' keys). The alternative — silently
+    filtering to the recognised keys — turned a one-character typo into a
+    wrong grade at exit 0: `debt_index` is scope-relative, so dropping a
+    misspelled "L4_requirement" recomputed a clean-looking grade over the
+    surviving layers (an F became an A, nothing on stderr).
+    """
+    unknown = sorted(name for name in raw if name not in CASCADE)
+    if unknown:
+        raise ValueError(f"Unknown layer(s) {unknown}; expected {sorted(CASCADE)}.")
+    return raw
+
+
 def layer_gap(complexity: int, grasp: int) -> int:
     """Gap = how far complexity outruns grasp.
 
@@ -120,7 +196,12 @@ def compute_grade(layers: dict[str, dict[str, int]]) -> dict[str, object]:
     credit_layers: list[str] = []
 
     for name, scores in layers.items():
-        complexity, grasp = scores["c"], scores["g"]
+        scores = check_mapping(scores, f"Layer {name!r}")
+        missing = {"c", "g"} - scores.keys()
+        if missing:
+            raise ValueError(f"Layer {name!r} is missing {sorted(missing)}; got {scores!r}.")
+        complexity = check_number(scores["c"], f"Complexity for {name!r}", minimum=0, maximum=SCALE_MAX)
+        grasp = check_number(scores["g"], f"Grasp for {name!r}", minimum=0, maximum=SCALE_MAX)
         cascade = CASCADE[name]
         gap = layer_gap(complexity, grasp)
         per_layer[name] = {"gap": gap, "weighted": cascade * gap}
@@ -144,7 +225,16 @@ def compute_grade(layers: dict[str, dict[str, int]]) -> dict[str, object]:
     # floored — the floor is a grading policy; ranking needs raw magnitude.
     absolute_index = weighted_realized / (sum(CASCADE.values()) * SCALE_MAX)
 
-    dominant = max(per_layer, key=lambda n: per_layer[n]["weighted"], default=None)
+    # Deterministic tie-break: on an exact weighted tie the *higher* layer
+    # wins (larger CASCADE multiplier) — consistent with LAYER_ORDER in
+    # recovery.py and with the cascade semantics (the higher layer is where
+    # remediation should start). Without it, max() fell back to insertion
+    # order, so a semantically irrelevant permutation of the JSON keys
+    # flipped the reported dominant_layer (the grade was never affected).
+    dominant = max(per_layer, key=lambda n: (per_layer[n]["weighted"], CASCADE[n]), default=None)
+    # Same determinism for credit_layers: descending cascade order (L4→L1),
+    # not input key order.
+    credit_layers.sort(key=lambda n: CASCADE[n], reverse=True)
     grade, label = _band(index)
     return {
         "per_layer": per_layer,
@@ -157,16 +247,33 @@ def compute_grade(layers: dict[str, dict[str, int]]) -> dict[str, object]:
     }
 
 
-def main() -> int:
-    raw = json.load(sys.stdin)
-    layers = {name: v for name, v in raw.items() if name in CASCADE}
-    if not layers:
-        print("No recognised layers in input.", file=sys.stderr)
+def run_cli(compute) -> int:
+    """Shared CLI shell for the three scripts (`grasp.py` and `recovery.py`
+    import it): read one JSON object from stdin, hand it to `compute`, print
+    the result as indented JSON. Every failure path is a `ValueError` →
+    exit 1 with a single legible line on stderr, never a traceback — the
+    skill reads that stderr, and a stack trace buries the sentence saying
+    what was wrong with the input.
+    """
+    try:
+        result = compute(load_object(sys.stdin))
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 1
-    result = compute_grade(layers)
     json.dump(result, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return 0
+
+
+def _compute_cli(raw: dict) -> dict[str, object]:
+    layers = check_layer_names(raw)
+    if not layers:
+        raise ValueError("No recognised layers in input.")
+    return compute_grade(layers)
+
+
+def main() -> int:
+    return run_cli(_compute_cli)
 
 
 if __name__ == "__main__":

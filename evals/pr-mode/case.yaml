@@ -1,0 +1,65 @@
+schema_version: "1.0"
+name: pr-mode
+description: >
+  Scope auto-detection: a non-main branch with a non-empty diff vs origin/main
+  must put the run in PR mode, and everything must be phrased as marginal debt
+  the change introduces — not total repo debt.
+tags: [scope, pr-mode, phase0]
+
+context:
+  # Build a repo with a real origin/main ref (bare clone used as remote) and a
+  # feature branch whose diff adds an opaque retry helper — the marginal debt
+  # the run should measure. scaffold_script is a path (relative to this case
+  # dir) that the runner executes with `bash` inside the temp scaffold dir.
+  scaffold_script: scaffold.sh
+
+execution:
+  prompt: "/epistemic:debt"
+  max_turns: 25
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Glob, Grep, Write]
+
+runs: 2
+
+graders:
+  # llm, not a regex on trace: the string "Antonino Rau" lives in SKILL.md,
+  # which the assistant reads every run, so a trace regex passed even when
+  # the notice was never shown to the user. The judged criterion is that the
+  # notice appears in an *assistant message*, before Phase 0.
+  - type: llm
+    name: credit-notice-before-phase0
+    focus: trace
+    criteria: >
+      Before resolving the assessment scope (Phase 0), the assistant
+      presented the Antonino Rau credit notice to the user in its own
+      assistant message — not merely read it from SKILL.md — including the
+      warning that the grade is an estimate produced by a purely speculative,
+      not empirically validated framework and should be treated as a prompt
+      for discussion, not ground truth. Both the attribution and that
+      disclaimer appear in assistant output before any scope-resolution
+      statement.
+    weight: 1
+
+  - type: llm
+    name: detects-pr-mode
+    focus: trace
+    criteria: >
+      The assistant detected PR mode: it recognized the non-main branch with a
+      diff against origin/main and scoped the assessment to the change (the
+      retry helper addition), not the whole repository.
+    weight: 2
+
+  - type: llm
+    name: marginal-debt-framing
+    focus: trace
+    criteria: >
+      The assessment is phrased as marginal epistemic debt introduced by the
+      change (e.g. "this PR/change adds/introduces"), and probes or findings
+      center on the diff content — the opaque retry logic (single-letter names,
+      magic backoff multipliers, undocumented jitter exponent) — rather than on
+      pre-existing code.
+    weight: 2
+
+expected_outcome: >
+  PR mode detected; the opaque retry helper is identified as the source of
+  marginal debt; probes target the diff.

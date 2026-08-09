@@ -1,0 +1,31 @@
+[tool.ruff]
+target-version = "py39"
+# Existing code runs up to 106 cols (mostly long f-string error messages and
+# test assertion lines); 110 covers it without forcing a wrap-everything pass.
+line-length = 110
+
+[tool.ruff.lint]
+# Deliberately curated, not ruff's implicit config-less default — a bare
+# `ruff check` with no pyproject.toml pulled in ~400 rules and broke CI on
+# ones this repo never opted into (EXE001, then TRY004). Pin an explicit,
+# reviewed set instead so upgrades can't silently add new failures.
+select = ["E", "F", "W", "B", "UP", "SIM", "EXE", "PLW", "RUF"]
+
+# TRY004 ("prefer TypeError for a bad-type check") conflicts with a
+# deliberate design choice in score.py/grasp.py/recovery.py: every
+# validation failure raises ValueError so each CLI's `except ValueError`
+# catches all of them and prints one legible stderr line, never a
+# traceback. Not selecting the "TRY" group avoids this and similar
+# tryceratops opinions that fight that single-exception-type contract.
+
+ignore = [
+    # `×` is deliberate math notation matching Cₛ/Gₑ used throughout this
+    # framework's comments and docs, not a spoofing risk in a code comment.
+    "RUF003",
+    # score.py/recovery.py deliberately reassign a loop variable to its
+    # validated form (`scores = check_mapping(scores, ...)`) so the rest of
+    # the loop body can't accidentally use the unvalidated value. Renaming
+    # would touch several lines of already hand-verified numeric code for a
+    # purely stylistic nit.
+    "PLW2901",
+]

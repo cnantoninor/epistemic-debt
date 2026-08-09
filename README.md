@@ -39,7 +39,7 @@ the diff is clean, everyone approves. Here's what a run looks like:
 **1. You ask.** On the PR branch:
 
 ```
-/epistemic-debt
+/epistemic:debt
 ```
 
 **2. It resolves scope.** Detects a non-`main` branch with a diff → **PR mode**,
@@ -55,8 +55,12 @@ grounded questions about *your* code, e.g.:
 > *"If the gateway times out but the charge actually succeeded, what stops the
 > retry from double-charging the customer?"*
 
-You answer in your own words; it grades against the real code and records how
-confident you felt vs. how right you were.
+Questions arrive as structured prompts, at most two at a time, and **each one
+is immediately followed by "how confident are you in that answer?"** — rated
+while the answer is still in your head, never reconstructed at the end. In
+free-text mode you type your answer into the prompt's *Other* field. It then
+grades against the real code and records how confident you felt vs. how right
+you were.
 
 **5. It grades and writes a report.** Cascade-weighted, saved to
 `epistemic-debt/2026-07-18-pr-payment-retries.md`.
@@ -93,22 +97,30 @@ the same inputs always produce the same grade.
 
 ```
 /plugin marketplace add cnantoninor/epistemic-debt
-/plugin install epistemic-debt
+/plugin install epistemic
 ```
 
 Then, in any repo:
 
 ```
-/epistemic-debt
+/epistemic:debt
 ```
 
 …or just ask: *"measure epistemic debt on this repo."*
+
+> **Upgrading from 1.0.0?** The plugin was called `epistemic-debt` and its
+> command `/epistemic-debt`. Clients track the plugin by id, so the rename
+> doesn't reach an existing install — remove the old one and install
+> `epistemic`.
 
 ### Scope & options
 
 - **Auto-scope:** a non-`main` branch with changes → measures the **PR diff**
   vs `origin/main`; otherwise the **whole repo**.
-- `format=free-text` (deeper signal) or `format=multiple-choice` (faster).
+- `format=free-text` (deeper signal — you write the answer, so it can't be
+  guessed) or `format=multiple-choice` (faster, but recognition ≠ recall, so
+  it over-states grasp; the prompt caps a question at 4 options, leaving
+  3 distractors).
 - `questions-per-layer=N` — by default it **scales with change size**
   (1 for a tiny PR up to 5 for a whole-repo audit).
 
@@ -165,8 +177,10 @@ reproducible.)
 ### From scores to a grade
 
 The weighted gaps normalize to a **debt index (0–1)**, which maps to a letter
-grade: low → **A / B** (Healthy / Minor), mid → **C** (Moderate), high →
-**D / F** (Serious / Critical). A **floor** ensures one severe high-layer gap
+grade at the cutoffs `score.py` fixes: **A** below 0.10 ("Negligible /
+Credit"), **B** below 0.25 ("Low"), **C** below 0.45 ("Moderate"), **D**
+below 0.70 ("High"), and **F** at 0.70 or above ("Critical"). A **floor**
+ensures one severe high-layer gap
 can't be averaged away by clean lower-layer code. Two indices are emitted: a
 **scope-relative** one (denominator = only the layers present) that drives the
 grade, and an **absolute** one (fixed 4-layer denominator) for ranking across

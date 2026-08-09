@@ -1,5 +1,8 @@
-epistemic-debt-publish-guide.md
 /epistemic-debt/
 __pycache__/
 *.pyc
 *:Zone.Identifier
+evals/results/
+docs/superpowers/
+.venv/
+.ruff_cache/
