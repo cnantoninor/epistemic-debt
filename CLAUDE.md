@@ -194,7 +194,12 @@ also the only form the evals can observe.
 ## Conventions specific to this repo
 
 - **Version bumps** must be applied in **both** `.claude-plugin/plugin.json` and
-  `.claude-plugin/marketplace.json` (they currently mirror each other).
+  `.claude-plugin/marketplace.json` (they currently mirror each other), and get
+  a `CHANGELOG.md` entry. `claude plugin validate .` checks the two manifests
+  agree; `claude plugin tag .` cuts the release tag and re-checks. Bump the
+  version even for a prompt-only change: clients cache the plugin under its
+  version string, so an unchanged version means `claude plugin update` reports
+  "already at the latest version" and users keep running the old markdown.
 - **Attribution is required.** Every run shows the credit notice for Antonino Rau
   before Phase 0, and the report template ends with the credit footer. The ⚠️
   "estimate, not a fact" disclaimer is **part of the mandatory credit block** —
